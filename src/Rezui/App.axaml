@@ -1,0 +1,11 @@
+<Application
+    x:Class="Rezui.App"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    RequestedThemeVariant="Dark">
+  <Application.Styles>
+    <FluentTheme />
+    <StyleInclude Source="avares://Rezui/Styles/Theme.axaml" />
+  </Application.Styles>
+</Application>
+

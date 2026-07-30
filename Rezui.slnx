@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="src/Rezui/Rezui.csproj" />
+  <Project Path="tests/Rezui.Tests/Rezui.Tests.csproj" />
+</Solution>
+

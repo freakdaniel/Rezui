@@ -1,0 +1,588 @@
+<Window
+    x:Class="Rezui.Views.MainWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="clr-namespace:Rezui.Models"
+    xmlns:vm="clr-namespace:Rezui.ViewModels"
+    xmlns:vlc="clr-namespace:LibVLCSharp.Avalonia;assembly=LibVLCSharp.Avalonia"
+    x:DataType="vm:MainWindowViewModel"
+    mc:Ignorable="d"
+    Width="1280"
+    Height="800"
+    MinWidth="980"
+    MinHeight="680"
+    Title="Rezui">
+
+  <Window.DataTemplates>
+    <DataTemplate DataType="models:MediaCardItem">
+      <Button
+          Width="174"
+          Margin="0,0,14,18"
+          Padding="0"
+          HorizontalContentAlignment="Stretch"
+          VerticalContentAlignment="Stretch"
+          Background="Transparent"
+          Command="{Binding OpenCommand}">
+        <StackPanel Spacing="9">
+          <Border
+              Height="246"
+              Background="#1B1E27"
+              CornerRadius="12"
+              ClipToBounds="True">
+            <Grid>
+              <TextBlock
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  Classes="muted"
+                  FontSize="34"
+                  Text="▧" />
+              <Image
+                  Source="{Binding ImageSource^}"
+                  Stretch="UniformToFill" />
+              <Border
+                  Padding="8,5"
+                  Margin="9"
+                  HorizontalAlignment="Left"
+                  VerticalAlignment="Bottom"
+                  Background="#CC0D0F14"
+                  CornerRadius="7">
+                <TextBlock
+                    FontSize="11"
+                    FontWeight="SemiBold"
+                    Text="{Binding Category}" />
+              </Border>
+            </Grid>
+          </Border>
+          <TextBlock
+              MaxHeight="43"
+              FontSize="14"
+              FontWeight="SemiBold"
+              Text="{Binding Title}"
+              TextTrimming="CharacterEllipsis"
+              TextWrapping="Wrap" />
+        </StackPanel>
+      </Button>
+    </DataTemplate>
+  </Window.DataTemplates>
+
+  <Grid RowDefinitions="*,Auto">
+    <Grid ColumnDefinitions="220,*">
+      <Border
+          Grid.Column="0"
+          Padding="18,24"
+          Background="#11131A"
+          BorderBrush="#242731"
+          BorderThickness="0,0,1,0">
+        <Grid RowDefinitions="Auto,28,Auto,*,Auto">
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <Border
+                Width="34"
+                Height="34"
+                Background="#E83E62"
+                CornerRadius="10">
+              <TextBlock
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  FontSize="20"
+                  FontWeight="Bold"
+                  Text="R" />
+            </Border>
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock FontSize="18" FontWeight="Bold" Text="Rezui" />
+              <TextBlock Classes="muted" FontSize="10" Text="UNOFFICIAL CLIENT" />
+            </StackPanel>
+          </StackPanel>
+
+          <StackPanel Grid.Row="2" Spacing="5">
+            <Button Classes="nav" Command="{Binding ShowHomeCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="12">
+                <TextBlock FontSize="17" Text="⌂" />
+                <TextBlock Text="Главная" />
+              </StackPanel>
+            </Button>
+            <Button Classes="nav" Command="{Binding ShowSearchCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="12">
+                <TextBlock FontSize="16" Text="⌕" />
+                <TextBlock Text="Поиск" />
+              </StackPanel>
+            </Button>
+            <Button Classes="nav" Command="{Binding OpenSettingsCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="12">
+                <TextBlock FontSize="16" Text="⚙" />
+                <TextBlock Text="Настройки" />
+              </StackPanel>
+            </Button>
+          </StackPanel>
+
+          <StackPanel Grid.Row="4" Spacing="10">
+            <Border
+                IsVisible="{Binding IsPremium}"
+                Padding="11"
+                Background="#2A2030"
+                CornerRadius="10">
+              <TextBlock
+                  Foreground="#F9B4C2"
+                  FontSize="12"
+                  Text="◆ Premium активен" />
+            </Border>
+            <Button
+                Classes="ghost"
+                Command="{Binding OpenLoginCommand}"
+                IsVisible="{Binding !IsAuthenticated}"
+                Content="{Binding AccountLabel}" />
+            <Button
+                Classes="ghost"
+                Command="{Binding LogoutCommand}"
+                IsVisible="{Binding IsAuthenticated}">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="●" Foreground="#66D99A" />
+                <TextBlock Text="{Binding AccountLabel}" />
+                <TextBlock Text="· Выйти" Foreground="#9A9EAA" />
+              </StackPanel>
+            </Button>
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <Grid Grid.Column="1" RowDefinitions="76,*">
+        <Border
+            Grid.Row="0"
+            Padding="28,16"
+            Background="#0D0F14"
+            BorderBrush="#22252E"
+            BorderThickness="0,0,0,1">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBox
+                MaxWidth="680"
+                HorizontalAlignment="Stretch"
+                VerticalContentAlignment="Center"
+                PlaceholderText="Найти фильм, сериал или аниме…"
+                Text="{Binding SearchQuery}">
+              <TextBox.KeyBindings>
+                <KeyBinding Gesture="Enter" Command="{Binding SearchCommand}" />
+              </TextBox.KeyBindings>
+            </TextBox>
+            <Button
+                Grid.Column="1"
+                Margin="12,0,0,0"
+                Classes="primary"
+                Command="{Binding SearchCommand}"
+                Content="Найти" />
+          </Grid>
+        </Border>
+
+        <Grid Grid.Row="1">
+          <!-- Home -->
+          <ScrollViewer IsVisible="{Binding IsHomeVisible}">
+            <StackPanel Margin="34,30,34,50" Spacing="30">
+              <Border
+                  MinHeight="216"
+                  Padding="34"
+                  Background="#27151E"
+                  BorderBrush="#53293A"
+                  BorderThickness="1"
+                  CornerRadius="20">
+                <Grid ColumnDefinitions="*,260">
+                  <StackPanel VerticalAlignment="Center" Spacing="13">
+                    <Border
+                        Padding="9,5"
+                        HorizontalAlignment="Left"
+                        Background="#E83E62"
+                        CornerRadius="7">
+                      <TextBlock FontSize="11" FontWeight="Bold" Text="СМОТРЕТЬ БЕЗ БРАУЗЕРА" />
+                    </Border>
+                    <TextBlock Classes="h1" Text="Кино начинается здесь" />
+                    <TextBlock
+                        MaxWidth="590"
+                        Classes="muted"
+                        FontSize="15"
+                        Text="Поиск, озвучки, сезоны, качество и субтитры — в одном спокойном десктопном интерфейсе."
+                        TextWrapping="Wrap" />
+                    <Button
+                        Width="150"
+                        HorizontalAlignment="Left"
+                        Classes="primary"
+                        Command="{Binding ShowSearchCommand}"
+                        Content="Перейти к поиску" />
+                  </StackPanel>
+                  <Grid Grid.Column="1">
+                    <Ellipse Width="190" Height="190" Fill="#35213C" />
+                    <Ellipse Width="125" Height="125" Fill="#E83E62" Opacity=".92" />
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        FontSize="58"
+                        Text="▶" />
+                  </Grid>
+                </Grid>
+              </Border>
+
+              <StackPanel Spacing="15">
+                <TextBlock Classes="h2" Text="Быстрый выбор" />
+                <ItemsControl ItemsSource="{Binding QuickSearches}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <WrapPanel />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:QuickSearchItem">
+                      <Button
+                          Margin="0,0,10,8"
+                          Classes="ghost"
+                          Command="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).QuickSearchCommand}"
+                          CommandParameter="{Binding Query}"
+                          Content="{Binding Title}" />
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+
+              <StackPanel Spacing="15">
+                <TextBlock Classes="h2" Text="Недавно открывали" />
+                <ItemsControl ItemsSource="{Binding Recent}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <WrapPanel />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                </ItemsControl>
+              </StackPanel>
+            </StackPanel>
+          </ScrollViewer>
+
+          <!-- Search -->
+          <ScrollViewer IsVisible="{Binding IsSearchVisible}">
+            <StackPanel Margin="34,30,34,50" Spacing="20">
+              <StackPanel>
+                <TextBlock Classes="h1" Text="Поиск" />
+                <TextBlock Classes="muted" Text="{Binding StatusMessage}" />
+              </StackPanel>
+              <ItemsControl ItemsSource="{Binding Results}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <WrapPanel />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+              </ItemsControl>
+            </StackPanel>
+          </ScrollViewer>
+
+          <!-- Details -->
+          <ScrollViewer IsVisible="{Binding IsDetailsVisible}">
+            <Grid Margin="34,30,34,50" ColumnDefinitions="280,*">
+              <StackPanel Spacing="14">
+                <Border
+                    Height="400"
+                    Background="#191C24"
+                    CornerRadius="16"
+                    ClipToBounds="True">
+                  <Grid>
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Classes="muted"
+                        FontSize="48"
+                        Text="▧" />
+                    <Image Source="{Binding DetailsImageSource^}" Stretch="UniformToFill" />
+                  </Grid>
+                </Border>
+                <Border Classes="card" Padding="14">
+                  <StackPanel Spacing="5">
+                    <TextBlock FontWeight="SemiBold" Text="{Binding DetailsRating}" />
+                    <TextBlock Classes="muted" FontSize="12" Text="{Binding DetailsMeta}" TextWrapping="Wrap" />
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+
+              <StackPanel Grid.Column="1" Margin="32,0,0,0" Spacing="20">
+                <StackPanel Spacing="4">
+                  <TextBlock Classes="h1" Text="{Binding DetailsTitle}" TextWrapping="Wrap" />
+                  <TextBlock
+                      Classes="muted"
+                      FontSize="15"
+                      Text="{Binding DetailsOriginalTitle}" />
+                </StackPanel>
+
+                <TextBlock
+                    MaxWidth="780"
+                    FontSize="15"
+                    LineHeight="23"
+                    Text="{Binding DetailsDescription}"
+                    TextWrapping="Wrap" />
+
+                <Border Classes="card" Padding="20">
+                  <StackPanel Spacing="15">
+                    <TextBlock FontSize="16" FontWeight="SemiBold" Text="Параметры просмотра" />
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="14">
+                      <StackPanel Spacing="7">
+                        <TextBlock Classes="muted" FontSize="12" Text="ОЗВУЧКА" />
+                        <ComboBox
+                            ItemsSource="{Binding Translations}"
+                            SelectedItem="{Binding SelectedTranslation}">
+                          <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="models:TranslationItem">
+                              <TextBlock Text="{Binding DisplayName}" />
+                            </DataTemplate>
+                          </ComboBox.ItemTemplate>
+                        </ComboBox>
+                      </StackPanel>
+                      <Grid Grid.Column="1" ColumnDefinitions="*,*" ColumnSpacing="10" IsVisible="{Binding IsSeries}">
+                        <StackPanel Spacing="7">
+                          <TextBlock Classes="muted" FontSize="12" Text="СЕЗОН" />
+                          <ComboBox
+                              ItemsSource="{Binding Seasons}"
+                              SelectedItem="{Binding SelectedSeason}">
+                            <ComboBox.ItemTemplate>
+                              <DataTemplate x:DataType="models:ChoiceItem">
+                                <TextBlock Text="{Binding Title}" />
+                              </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                          </ComboBox>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="7">
+                          <TextBlock Classes="muted" FontSize="12" Text="СЕРИЯ" />
+                          <ComboBox
+                              ItemsSource="{Binding Episodes}"
+                              SelectedItem="{Binding SelectedEpisode}">
+                            <ComboBox.ItemTemplate>
+                              <DataTemplate x:DataType="models:ChoiceItem">
+                                <TextBlock Text="{Binding Title}" />
+                              </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                          </ComboBox>
+                        </StackPanel>
+                      </Grid>
+                    </Grid>
+                    <Button
+                        HorizontalAlignment="Left"
+                        Classes="primary"
+                        Command="{Binding ResolvePlaybackCommand}"
+                        Content="▶  Смотреть" />
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </Grid>
+          </ScrollViewer>
+
+          <!-- Player -->
+          <Grid IsVisible="{Binding IsPlayerVisible}" RowDefinitions="Auto,*,Auto">
+            <Border Padding="22,14" Background="#11131A">
+              <Grid ColumnDefinitions="Auto,*,Auto">
+                <Button
+                    Classes="ghost"
+                    Command="{Binding BackFromPlayerCommand}"
+                    Content="← Назад" />
+                <StackPanel Grid.Column="1" Margin="18,0" VerticalAlignment="Center">
+                  <TextBlock FontWeight="SemiBold" Text="{Binding Player.Title}" />
+                  <TextBlock Classes="muted" FontSize="11" Text="{Binding Player.StatusText}" />
+                </StackPanel>
+                <Button Grid.Column="2" Classes="ghost" Click="FullscreenButton_OnClick" Content="⛶" />
+              </Grid>
+            </Border>
+            <Border Grid.Row="1" Background="Black">
+              <vlc:VideoView MediaPlayer="{Binding Player.MediaPlayer}" />
+            </Border>
+            <Border Grid.Row="2" Padding="22,14" Background="#11131A">
+              <Grid RowDefinitions="Auto,Auto" RowSpacing="10">
+                <Slider
+                    Maximum="{Binding Player.DurationMs}"
+                    Minimum="0"
+                    PointerReleased="SeekSlider_OnPointerReleased"
+                    Value="{Binding Player.CurrentTimeMs, Mode=OneWay}" />
+                <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,Auto,*,Auto,150">
+                  <Button
+                      Padding="12,7"
+                      Classes="ghost"
+                      Command="{Binding Player.SkipBackCommand}"
+                      Content="↶ 10" />
+                  <Button
+                      Grid.Column="1"
+                      Margin="8,0"
+                      Padding="18,7"
+                      Classes="primary"
+                      Command="{Binding Player.TogglePlaybackCommand}"
+                      Content="▶ / Ⅱ" />
+                  <Button
+                      Grid.Column="2"
+                      Padding="12,7"
+                      Classes="ghost"
+                      Command="{Binding Player.SkipForwardCommand}"
+                      Content="10 ↷" />
+                  <TextBlock
+                      Grid.Column="4"
+                      Margin="16,0"
+                      VerticalAlignment="Center"
+                      Classes="muted">
+                    <TextBlock.Inlines>
+                      <Run Text="{Binding Player.CurrentTimeText}" />
+                      <Run Text=" / " />
+                      <Run Text="{Binding Player.DurationText}" />
+                    </TextBlock.Inlines>
+                  </TextBlock>
+                  <Slider
+                      Grid.Column="5"
+                      Maximum="100"
+                      Minimum="0"
+                      Value="{Binding Player.Volume}" />
+                </Grid>
+              </Grid>
+            </Border>
+          </Grid>
+        </Grid>
+      </Grid>
+
+      <!-- Modal scrim -->
+      <Border
+          Grid.ColumnSpan="2"
+          Background="#B8000000"
+          IsVisible="{Binding IsSettingsOpen}">
+        <Border
+            Width="520"
+            Padding="26"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Classes="dialog">
+          <StackPanel Spacing="18">
+            <StackPanel Spacing="5">
+              <TextBlock Classes="h2" Text="Подключение к HDRezka" />
+              <TextBlock
+                  Classes="muted"
+                  Text="Укажите доступное вам зеркало. Домен не встроен в приложение."
+                  TextWrapping="Wrap" />
+            </StackPanel>
+            <StackPanel Spacing="7">
+              <TextBlock FontSize="12" FontWeight="SemiBold" Text="АДРЕС ЗЕРКАЛА" />
+              <TextBox PlaceholderText="https://example.com" Text="{Binding Origin}" />
+            </StackPanel>
+            <Border Padding="12" Background="#201B18" CornerRadius="10">
+              <TextBlock
+                  Foreground="#D9BCA9"
+                  FontSize="12"
+                  Text="Используйте только адрес, к которому у вас есть законный доступ. Rezui не предоставляет зеркала и контент."
+                  TextWrapping="Wrap" />
+            </Border>
+            <TextBlock
+                Foreground="#F08098"
+                FontSize="12"
+                Text="{Binding StatusMessage}"
+                TextWrapping="Wrap" />
+            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="10">
+              <Button Classes="ghost" Command="{Binding CloseSettingsCommand}" Content="Отмена" />
+              <Button Classes="primary" Command="{Binding SaveSettingsCommand}" Content="Сохранить" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+      </Border>
+
+      <Border
+          Grid.ColumnSpan="2"
+          Background="#B8000000"
+          IsVisible="{Binding IsLoginOpen}">
+        <Border
+            Width="440"
+            Padding="26"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Classes="dialog">
+          <StackPanel Spacing="17">
+            <StackPanel Spacing="5">
+              <TextBlock Classes="h2" Text="Вход в аккаунт" />
+              <TextBlock Classes="muted" Text="Данные отправляются прямо выбранному зеркалу." />
+            </StackPanel>
+            <StackPanel Spacing="7">
+              <TextBlock FontSize="12" FontWeight="SemiBold" Text="ЛОГИН ИЛИ EMAIL" />
+              <TextBox Text="{Binding Login}" />
+            </StackPanel>
+            <StackPanel Spacing="7">
+              <TextBlock FontSize="12" FontWeight="SemiBold" Text="ПАРОЛЬ" />
+              <TextBox PasswordChar="●" Text="{Binding Password}" />
+            </StackPanel>
+            <CheckBox
+                Content="Запомнить сессию на этом устройстве"
+                IsChecked="{Binding RememberSession}" />
+            <TextBlock
+                Foreground="#F08098"
+                FontSize="12"
+                Text="{Binding StatusMessage}"
+                TextWrapping="Wrap" />
+            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="10">
+              <Button Classes="ghost" Command="{Binding CloseLoginCommand}" Content="Отмена" />
+              <Button Classes="primary" Command="{Binding LoginCommand}" Content="Войти" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+      </Border>
+
+      <Border
+          Grid.ColumnSpan="2"
+          Background="#B8000000"
+          IsVisible="{Binding IsPlaybackOptionsOpen}">
+        <Border
+            Width="500"
+            Padding="26"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Classes="dialog">
+          <StackPanel Spacing="18">
+            <StackPanel Spacing="5">
+              <TextBlock Classes="h2" Text="Запустить просмотр" />
+              <TextBlock Classes="muted" Text="Выберите качество и субтитры." />
+            </StackPanel>
+            <StackPanel Spacing="7">
+              <TextBlock FontSize="12" FontWeight="SemiBold" Text="КАЧЕСТВО" />
+              <ComboBox ItemsSource="{Binding Qualities}" SelectedItem="{Binding SelectedQuality}">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="models:QualityItem">
+                    <TextBlock Text="{Binding DisplayName}" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+            </StackPanel>
+            <StackPanel Spacing="7">
+              <TextBlock FontSize="12" FontWeight="SemiBold" Text="СУБТИТРЫ" />
+              <ComboBox ItemsSource="{Binding Subtitles}" SelectedItem="{Binding SelectedSubtitle}">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="models:SubtitleItem">
+                    <TextBlock Text="{Binding Title}" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+            </StackPanel>
+            <TextBlock
+                Foreground="#F08098"
+                FontSize="12"
+                Text="{Binding StatusMessage}"
+                TextWrapping="Wrap" />
+            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="10">
+              <Button Classes="ghost" Command="{Binding ClosePlaybackOptionsCommand}" Content="Отмена" />
+              <Button Classes="primary" Command="{Binding StartPlaybackCommand}" Content="▶ Смотреть" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+      </Border>
+    </Grid>
+
+    <Border
+        Grid.Row="1"
+        Padding="20,9"
+        Background="#191C24"
+        BorderBrush="#2C303A"
+        BorderThickness="0,1,0,0"
+        IsVisible="{Binding IsBusy}">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <ProgressBar Width="130" IsIndeterminate="True" />
+          <TextBlock VerticalAlignment="Center" Text="{Binding StatusMessage}" />
+        </StackPanel>
+        <Button
+            Grid.Column="1"
+            Padding="10,4"
+            Command="{Binding CancelOperationCommand}"
+            Content="Отмена" />
+      </Grid>
+    </Border>
+  </Grid>
+</Window>

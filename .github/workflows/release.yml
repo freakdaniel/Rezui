@@ -1,0 +1,102 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - name: Install LibVLC build runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libvlc-dev vlc-plugin-base
+      - name: Build self-contained archive
+        run: ./scripts/publish-linux.sh linux-x64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Rezui-linux-x64
+          path: artifacts/Rezui-linux-x64.tar.gz
+          if-no-files-found: error
+
+  windows:
+    strategy:
+      matrix:
+        runtime: [win-x64, win-arm64]
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - name: Publish with native LibVLC
+        shell: pwsh
+        run: |
+          $output = "artifacts/${{ matrix.runtime }}"
+          dotnet publish src/Rezui/Rezui.csproj `
+            --configuration Release `
+            --runtime "${{ matrix.runtime }}" `
+            --self-contained true `
+            --output $output
+          Compress-Archive `
+            -Path "$output/*" `
+            -DestinationPath "artifacts/Rezui-${{ matrix.runtime }}.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Rezui-${{ matrix.runtime }}
+          path: artifacts/Rezui-${{ matrix.runtime }}.zip
+          if-no-files-found: error
+
+  macos:
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - name: Publish with native LibVLC
+        run: |
+          dotnet publish src/Rezui/Rezui.csproj \
+            --configuration Release \
+            --runtime osx-x64 \
+            --self-contained true \
+            --output artifacts/osx-x64
+          ditto -c -k --keepParent \
+            artifacts/osx-x64 \
+            artifacts/Rezui-osx-x64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Rezui-osx-x64
+          path: artifacts/Rezui-osx-x64.zip
+          if-no-files-found: error
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [linux, windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+      - name: Create checksums
+        working-directory: release-assets
+        run: sha256sum * > SHA256SUMS
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --generate-notes \
+            release-assets/*
