@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Diagnostics;
 using LibVLCSharp.Shared;
 
 namespace Rezui.Services;
@@ -98,10 +99,10 @@ public static class LibVlcRuntime
                 typeof(LibVLC).Assembly,
                 ResolveLinuxLibrary);
         }
-        catch (InvalidOperationException)
+        catch (InvalidOperationException exception)
         {
-            // Another application component already installed a resolver.
-            // The standard libvlc name will still be attempted by Core.Initialize.
+            Debug.WriteLine(
+                $"Резолвер LibVLC уже установлен; используется существующий: {exception.Message}");
         }
 
         _resolverInstalled = true;

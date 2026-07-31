@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Diagnostics;
 using Rezui.Models;
 
 namespace Rezui.Services;
@@ -12,9 +13,9 @@ public sealed class SettingsService
 
     private readonly string _directory;
 
-    public SettingsService()
+    public SettingsService(string? directory = null)
     {
-        _directory = Path.Combine(
+        _directory = directory ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Rezui");
         SettingsPath = Path.Combine(_directory, "settings.json");
@@ -32,11 +33,22 @@ public sealed class SettingsService
         try
         {
             await using var stream = File.OpenRead(SettingsPath);
-            return await JsonSerializer.DeserializeAsync<AppSettings>(
-                       stream,
-                       JsonOptions,
-                       cancellationToken)
-                   ?? new AppSettings();
+            var settings = await JsonSerializer.DeserializeAsync<AppSettings>(
+                               stream,
+                               JsonOptions,
+                               cancellationToken)
+                           ?? new AppSettings();
+            if (string.IsNullOrWhiteSpace(settings.Origin))
+            {
+                settings.Origin = RezkaMirrors.Primary;
+            }
+
+            settings.CustomMirrors = (settings.CustomMirrors ?? [])
+                .Where(origin => !string.IsNullOrWhiteSpace(origin))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            return settings;
         }
         catch (JsonException)
         {
@@ -86,9 +98,10 @@ public sealed class SettingsService
                 path,
                 UnixFileMode.UserRead | UnixFileMode.UserWrite);
         }
-        catch (PlatformNotSupportedException)
+        catch (PlatformNotSupportedException exception)
         {
-            // Permissions are best-effort on unusual Unix filesystems.
+            Debug.WriteLine(
+                $"Не удалось ограничить права доступа к {path}: {exception.Message}");
         }
     }
 }

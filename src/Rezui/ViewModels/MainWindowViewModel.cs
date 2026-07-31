@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
+using System.Net.Mail;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HdRezka;
@@ -13,21 +15,34 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private readonly SettingsService _settingsService;
     private readonly RezkaClientService _rezka;
     private readonly ImageCacheService _images;
+    private readonly ThemeService _themes;
+    private readonly LibrarySyncWorker _librarySync;
+    private readonly IMirrorDiscoveryService _mirrorDiscovery;
+    private readonly CancellationTokenSource _lifetimeCancellation = new();
     private CancellationTokenSource? _operationCancellation;
     private AppSettings _settings = new();
     private Media? _media;
     private MediaStream? _resolvedStream;
+    private volatile bool _disposed;
 
     public MainWindowViewModel(
         SettingsService settingsService,
         RezkaClientService rezka,
         ImageCacheService images,
-        PlayerViewModel player)
+        PlayerViewModel player,
+        ThemeService themes,
+        LibrarySyncWorker librarySync,
+        IMirrorDiscoveryService mirrorDiscovery)
     {
         _settingsService = settingsService;
         _rezka = rezka;
         _images = images;
+        _themes = themes;
+        _librarySync = librarySync;
+        _mirrorDiscovery = mirrorDiscovery;
         Player = player;
+        _librarySync.SnapshotChanged += OnLibrarySnapshotChanged;
+        _librarySync.SyncFailed += OnLibrarySyncFailed;
 
         QuickSearches =
         [
@@ -37,16 +52,24 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             new QuickSearchItem("Аниме", "аниме")
         ];
 
-        _ = InitializeAsync();
+        Initialization = InitializeAsync();
     }
+
+    public Task Initialization { get; }
 
     public PlayerViewModel Player { get; }
 
     public IReadOnlyList<QuickSearchItem> QuickSearches { get; }
 
+    public ObservableCollection<MirrorStatusItem> MirrorStatuses { get; } = [];
+
     public ObservableCollection<MediaCardItem> Results { get; } = [];
 
     public ObservableCollection<MediaCardItem> Recent { get; } = [];
+
+    public ObservableCollection<MediaCardItem> ContinueWatching { get; } = [];
+
+    public ObservableCollection<LibraryFolderItem> BookmarkFolders { get; } = [];
 
     public ObservableCollection<TranslationItem> Translations { get; } = [];
 
@@ -62,19 +85,16 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private bool _isHomeVisible = true;
 
     [ObservableProperty]
-    private bool _isSearchVisible;
+    private bool _isLibraryVisible;
+
+    [ObservableProperty]
+    private bool _isSettingsVisible;
 
     [ObservableProperty]
     private bool _isDetailsVisible;
 
     [ObservableProperty]
     private bool _isPlayerVisible;
-
-    [ObservableProperty]
-    private bool _isSettingsOpen;
-
-    [ObservableProperty]
-    private bool _isLoginOpen;
 
     [ObservableProperty]
     private bool _isPlaybackOptionsOpen;
@@ -89,7 +109,106 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private bool _isPremium;
 
     [ObservableProperty]
-    private string _accountLabel = "Войти";
+    private string _accountLabel = "Профиль";
+
+    [ObservableProperty]
+    private string _profileName = "Профиль";
+
+    [ObservableProperty]
+    private string _profileEmail = string.Empty;
+
+    [ObservableProperty]
+    private string _profileInitials = "R";
+
+    [ObservableProperty]
+    private Task<Bitmap?> _profileImageSource = Task.FromResult<Bitmap?>(null);
+
+    [ObservableProperty]
+    private bool _isProfilePopupOpen;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsFilmsCategory))]
+    [NotifyPropertyChangedFor(nameof(IsSeriesCategory))]
+    [NotifyPropertyChangedFor(nameof(IsCartoonsCategory))]
+    [NotifyPropertyChangedFor(nameof(IsAnimeCategory))]
+    private string? _activeCategory;
+
+    public bool IsFilmsCategory => ActiveCategory == "films";
+
+    public bool IsSeriesCategory => ActiveCategory == "series";
+
+    public bool IsCartoonsCategory => ActiveCategory == "cartoons";
+
+    public bool IsAnimeCategory => ActiveCategory == "anime";
+
+    [ObservableProperty]
+    private bool _isStartupVisible = true;
+
+    public bool IsShellVisible => !IsStartupVisible;
+
+    partial void OnIsStartupVisibleChanged(bool value) =>
+        OnPropertyChanged(nameof(IsShellVisible));
+
+    [ObservableProperty]
+    private bool _isStartupLoading = true;
+
+    [ObservableProperty]
+    private bool _isStartupAuthenticationRequired;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsMirrorSelectorEnabled))]
+    [NotifyPropertyChangedFor(nameof(CanLogin))]
+    private bool _isMirrorCheckRunning = true;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanLogin))]
+    private bool _hasAvailableMirror;
+
+    [ObservableProperty]
+    private bool _isAutoMirrorSelection = true;
+
+    [ObservableProperty]
+    private string _mirrorSelectorLabel = "Проверка подключения";
+
+    [ObservableProperty]
+    private string _customMirror = string.Empty;
+
+    [ObservableProperty]
+    private string _mirrorStatusMessage = string.Empty;
+
+    [ObservableProperty]
+    private bool _isUsingCustomMirror;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsLoginWizardStep))]
+    [NotifyPropertyChangedFor(nameof(IsMirrorWizardStep))]
+    private int _startupWizardStep;
+
+    public bool IsLoginWizardStep => StartupWizardStep == 0;
+
+    public bool IsMirrorWizardStep => StartupWizardStep == 1;
+
+    public bool IsMirrorSelectorEnabled => !IsMirrorCheckRunning;
+
+    public bool CanLogin => !IsMirrorCheckRunning && HasAvailableMirror;
+
+    [ObservableProperty]
+    private string _startupTitle = "Запускаем Rezui";
+
+    [ObservableProperty]
+    private string _startupMessage = "Читаем настройки приложения";
+
+    [ObservableProperty]
+    private int _startupProgress;
+
+    [ObservableProperty]
+    private bool _isSettingsCheckComplete;
+
+    [ObservableProperty]
+    private bool _isAuthenticationCheckComplete;
+
+    [ObservableProperty]
+    private bool _isCacheCheckComplete;
 
     [ObservableProperty]
     private string _statusMessage = string.Empty;
@@ -98,7 +217,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private string _searchQuery = string.Empty;
 
     [ObservableProperty]
-    private string _origin = string.Empty;
+    private string _origin = RezkaMirrors.Primary;
 
     [ObservableProperty]
     private string _login = string.Empty;
@@ -108,6 +227,22 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private bool _rememberSession = true;
+
+    [ObservableProperty]
+    private ThemePreference _selectedTheme = ThemePreference.System;
+
+    public bool IsSystemTheme => SelectedTheme == ThemePreference.System;
+
+    public bool IsLightTheme => SelectedTheme == ThemePreference.Light;
+
+    public bool IsDarkTheme => SelectedTheme == ThemePreference.Dark;
+
+    partial void OnSelectedThemeChanged(ThemePreference value)
+    {
+        OnPropertyChanged(nameof(IsSystemTheme));
+        OnPropertyChanged(nameof(IsLightTheme));
+        OnPropertyChanged(nameof(IsDarkTheme));
+    }
 
     [ObservableProperty]
     private string _detailsTitle = string.Empty;
@@ -163,112 +298,220 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private void ShowHome() => Navigate(Page.Home);
 
     [RelayCommand]
-    private void ShowSearch()
+    private void ShowLibrary()
     {
-        Navigate(Page.Search);
-        StatusMessage = Results.Count == 0
-            ? "Введите название фильма, сериала или аниме"
-            : StatusMessage;
+        ActiveCategory = null;
+        Navigate(Page.Library);
+        RequestLibraryRefresh(LibrarySyncReason.LibraryOpened);
     }
 
     [RelayCommand]
     private void OpenSettings()
     {
-        Origin = _settings.Origin;
         StatusMessage = string.Empty;
-        IsSettingsOpen = true;
+        Navigate(Page.Settings);
     }
 
     [RelayCommand]
-    private void CloseSettings() => IsSettingsOpen = false;
+    private void ToggleProfilePopup() =>
+        IsProfilePopupOpen = !IsProfilePopupOpen;
 
     [RelayCommand]
-    private void OpenLogin()
-    {
-        if (!_rezka.IsConfigured)
-        {
-            IsSettingsOpen = true;
-            StatusMessage = "Сначала укажите адрес зеркала";
-            return;
-        }
-
-        StatusMessage = string.Empty;
-        IsLoginOpen = true;
-    }
-
-    [RelayCommand]
-    private void CloseLogin()
-    {
-        Password = string.Empty;
-        IsLoginOpen = false;
-    }
-
-    [RelayCommand]
-    private async Task SaveSettingsAsync()
-    {
-        await RunBusyAsync(async cancellationToken =>
-        {
-            var previousOrigin = _settings.Origin;
-            await _rezka.ConfigureOriginAsync(Origin, cancellationToken);
-            _settings = _rezka.Settings;
-            Origin = _settings.Origin;
-            if (!string.Equals(
-                    previousOrigin,
-                    Origin,
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                ApplyAuthentication(null);
-            }
-
-            IsSettingsOpen = false;
-            StatusMessage = "Зеркало подключено";
-        });
-    }
+    private void CloseProfilePopup() =>
+        IsProfilePopupOpen = false;
 
     [RelayCommand]
     private async Task LoginAsync()
     {
-        if (string.IsNullOrWhiteSpace(Login) || string.IsNullOrEmpty(Password))
+        if (!CanLogin)
         {
-            StatusMessage = "Введите логин и пароль";
+            StartupMessage = "Добавьте доступное зеркало, чтобы войти.";
             return;
         }
 
-        await RunBusyAsync(async cancellationToken =>
+        if (!MailAddress.TryCreate(Login.Trim(), out _) || string.IsNullOrEmpty(Password))
         {
+            StartupMessage = "Введите корректную почту и пароль";
+            return;
+        }
+
+        SetStartupLoading(
+            "Проверяем аккаунт",
+            "HDRezka подтверждает данные и создаёт сессию",
+            55);
+
+        try
+        {
+            await _rezka.ConfigureOriginAsync(Origin);
+            _settings = _rezka.Settings;
             var state = await _rezka.LoginAsync(
                 Login,
                 Password,
-                RememberSession,
-                cancellationToken);
-            ApplyAuthentication(state);
+                RememberSession);
             Password = string.Empty;
-            IsLoginOpen = false;
-            StatusMessage = "Вход выполнен";
-        });
+            await CompleteStartupAsync(state);
+        }
+        catch (Exception exception)
+        {
+            ShowAuthenticationRequired(ToUserMessage(exception));
+        }
+    }
+
+    [RelayCommand]
+    private void SelectAutoMirror()
+    {
+        IsAutoMirrorSelection = true;
+        MirrorSelectorLabel = "Зеркало: автовыбор";
+        var fastest = MirrorStatuses
+            .Where(item => item.IsAvailable)
+            .OrderBy(item => item.LatencyMilliseconds)
+            .FirstOrDefault();
+        ApplyMirrorSelection(fastest?.Origin);
+    }
+
+    [RelayCommand]
+    private void OpenMirrorWizard()
+    {
+        if (IsMirrorSelectorEnabled)
+        {
+            StartupWizardStep = 1;
+        }
+    }
+
+    [RelayCommand]
+    private void CloseMirrorWizard() =>
+        StartupWizardStep = 0;
+
+    [RelayCommand]
+    private void SelectMirror(MirrorStatusItem? mirror)
+    {
+        if (mirror?.IsAvailable != true)
+        {
+            return;
+        }
+
+        IsAutoMirrorSelection = false;
+        MirrorSelectorLabel = $"Зеркало: {mirror.DisplayName}";
+        ApplyMirrorSelection(mirror.Origin);
+    }
+
+    [RelayCommand]
+    private async Task UseCustomMirrorAsync()
+    {
+        MirrorStatusMessage = string.Empty;
+        Uri normalized;
+        try
+        {
+            normalized = RezkaClientService.NormalizeOrigin(CustomMirror);
+        }
+        catch (ArgumentException)
+        {
+            MirrorStatusMessage = "Введите адрес зеркала, например https://example.com.";
+            return;
+        }
+
+        var origin = normalized.AbsoluteUri.TrimEnd('/');
+        IsUsingCustomMirror = true;
+        try
+        {
+            var probe = (await _mirrorDiscovery.ProbeAsync(
+                    new[] { origin },
+                    _lifetimeCancellation.Token))
+                .Single();
+
+            if (!probe.IsAvailable)
+            {
+                MirrorStatusMessage = "Зеркало не отвечает. Проверьте адрес или попробуйте другое.";
+                return;
+            }
+
+            UpsertMirror(probe);
+            if (!RezkaMirrors.IsDefault(origin)
+                && !_settings.CustomMirrors.Contains(
+                    origin,
+                    StringComparer.OrdinalIgnoreCase))
+            {
+                _settings.CustomMirrors.Add(origin);
+                await _settingsService.SaveAsync(
+                    _settings,
+                    _lifetimeCancellation.Token);
+            }
+
+            SelectMirror(MirrorStatuses.First(item =>
+                string.Equals(
+                    item.Origin,
+                    probe.Origin,
+                    StringComparison.OrdinalIgnoreCase)));
+            CustomMirror = string.Empty;
+            MirrorStatusMessage = "Пользовательское зеркало выбрано";
+            StartupWizardStep = 0;
+        }
+        catch (OperationCanceledException) when (_disposed)
+        {
+            return;
+        }
+        finally
+        {
+            IsUsingCustomMirror = false;
+        }
     }
 
     [RelayCommand]
     private async Task LogoutAsync()
     {
+        IsProfilePopupOpen = false;
         await RunBusyAsync(async cancellationToken =>
         {
             await _rezka.LogoutAsync(cancellationToken);
             ApplyAuthentication(null);
-            StatusMessage = "Вы вышли из аккаунта";
+            ShowAuthenticationRequired("Вы вышли из аккаунта.");
         });
+    }
+
+    [RelayCommand]
+    private async Task SetThemeAsync(string? value)
+    {
+        if (!Enum.TryParse<ThemePreference>(value, ignoreCase: true, out var theme))
+        {
+            return;
+        }
+
+        SelectedTheme = theme;
+        _settings.Theme = theme;
+        _themes.Apply(theme);
+        await _settingsService.SaveAsync(_settings);
     }
 
     [RelayCommand]
     private async Task SearchAsync()
     {
-        if (string.IsNullOrWhiteSpace(SearchQuery))
+        ActiveCategory = null;
+        await SearchCoreAsync();
+    }
+
+    [RelayCommand]
+    private async Task BrowseCategoryAsync(string descriptor)
+    {
+        var separatorIndex = descriptor.IndexOf('|');
+        if (separatorIndex <= 0 || separatorIndex == descriptor.Length - 1)
         {
-            ShowSearch();
             return;
         }
 
-        Navigate(Page.Search);
+        ActiveCategory = descriptor[..separatorIndex];
+        SearchQuery = descriptor[(separatorIndex + 1)..];
+        await SearchCoreAsync();
+    }
+
+    private async Task SearchCoreAsync()
+    {
+        if (string.IsNullOrWhiteSpace(SearchQuery))
+        {
+            ShowLibrary();
+            return;
+        }
+
+        Navigate(Page.Library);
         await RunBusyAsync(async cancellationToken =>
         {
             StatusMessage = $"Ищем «{SearchQuery.Trim()}»…";
@@ -405,36 +648,85 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private async Task InitializeAsync()
     {
-        IsBusy = true;
+        ResetStartupState();
         try
         {
-            _settings = await _settingsService.LoadAsync();
-            Origin = _settings.Origin;
+            var cancellationToken = _lifetimeCancellation.Token;
+            SetStartupLoading(
+                "Запускаем Rezui",
+                "Читаем настройки приложения",
+                15);
+            _settings = await _settingsService.LoadAsync(cancellationToken);
+            _rezka.AttachSettings(_settings);
             RememberSession = _settings.RememberSession;
+            SelectedTheme = _settings.Theme;
+            _themes.Apply(SelectedTheme);
             RebuildRecent();
+            IsSettingsCheckComplete = true;
 
-            if (string.IsNullOrWhiteSpace(_settings.Origin))
+            SetStartupLoading(
+                "Ищем зеркало",
+                "Сравниваем доступность и задержку подключений",
+                30);
+            await RefreshMirrorsAsync(cancellationToken);
+            if (!HasAvailableMirror)
             {
-                IsSettingsOpen = true;
-                StatusMessage = "Укажите доступное вам зеркало HDRezka";
-                await _rezka.InitializeAsync(_settings);
+                ShowAuthenticationRequired(
+                    "Ни одно встроенное зеркало не отвечает. Добавьте доступный адрес в меню подключения.");
                 return;
             }
 
-            var state = await _rezka.InitializeAsync(_settings);
-            ApplyAuthentication(state);
-            StatusMessage = state?.IsAuthenticated == true
-                ? "Сессия восстановлена"
-                : "Готово к поиску";
+            await _rezka.ConfigureOriginAsync(Origin, cancellationToken);
+            _settings = _rezka.Settings;
+
+            SetStartupLoading(
+                "Проверяем сессию",
+                "Подтверждаем авторизацию на выбранном зеркале",
+                45);
+            var state = await _rezka.InitializeAsync(_settings, cancellationToken);
+            if (state?.IsAuthenticated != true)
+            {
+                ShowAuthenticationRequired(
+                    "HDRezka требует авторизацию. Войдите, чтобы открыть приложение.");
+                return;
+            }
+
+            await CompleteStartupAsync(state);
+        }
+        catch (OperationCanceledException) when (_disposed)
+        {
+            return;
         }
         catch (Exception exception)
         {
-            StatusMessage = ToUserMessage(exception);
+            ShowAuthenticationRequired(
+                $"{ToUserMessage(exception)} Выберите другое зеркало и войдите снова.");
         }
-        finally
-        {
-            IsBusy = false;
-        }
+    }
+
+    private async Task CompleteStartupAsync(AuthenticationState state)
+    {
+        IsAuthenticationCheckComplete = true;
+        SetStartupLoading(
+            "Загружаем профиль",
+            "Получаем имя, подписку и изображение аккаунта",
+            72);
+
+        var profile = await _rezka.GetProfileAsync();
+        ApplyAuthentication(state, profile);
+
+        SetStartupLoading(
+            "Готовим библиотеку",
+            "Проверяем локальные данные и недавние просмотры",
+            90);
+        RebuildRecent();
+        IsCacheCheckComplete = true;
+        StartupProgress = 100;
+        IsStartupLoading = false;
+        IsStartupVisible = false;
+        Navigate(Page.Home);
+        StatusMessage = "Сессия восстановлена";
+        RequestLibraryRefresh(LibrarySyncReason.SessionRestored);
     }
 
     private async Task OpenMediaAsync(Uri url)
@@ -555,13 +847,203 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
-    private void ApplyAuthentication(AuthenticationState? state)
+    public void RequestLibraryRefresh(LibrarySyncReason reason)
+    {
+        if (_disposed || !IsAuthenticated || IsStartupVisible)
+        {
+            return;
+        }
+
+        _librarySync.RequestRefresh(reason);
+    }
+
+    private void OnLibrarySnapshotChanged(AccountLibrarySnapshot snapshot)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        Dispatcher.UIThread.Post(
+            () =>
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                ApplyLibrarySnapshot(snapshot);
+            },
+            DispatcherPriority.Background);
+    }
+
+    private void OnLibrarySyncFailed(Exception exception)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        Dispatcher.UIThread.Post(
+            () =>
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                if (exception is LoginRequiredException)
+                {
+                    ShowAuthenticationRequired(
+                        "Сессия истекла. Войдите в аккаунт ещё раз.");
+                }
+                else if (IsLibraryVisible)
+                {
+                    StatusMessage = ToUserMessage(exception);
+                }
+            },
+            DispatcherPriority.Background);
+    }
+
+    private void ApplyLibrarySnapshot(AccountLibrarySnapshot snapshot)
+    {
+        var existingCards = ContinueWatching
+            .GroupBy(card => card.Url.AbsoluteUri, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => group.First(),
+                StringComparer.OrdinalIgnoreCase);
+        var continueWatching = snapshot.ContinueWatching
+            .Select(item => ReuseOrCreateCard(
+                existingCards,
+                item.Title,
+                item.Url,
+                item.ImageUrl,
+                RezkaClientService.LocalizeCategory(item.Category)))
+            .ToArray();
+        ReconcileCollection(
+            ContinueWatching,
+            continueWatching,
+            card => card.Url.AbsoluteUri,
+            StringComparer.OrdinalIgnoreCase);
+
+        var existingFolders = BookmarkFolders.ToDictionary(
+            folder => folder.Name,
+            StringComparer.OrdinalIgnoreCase);
+        var folders = snapshot.BookmarkFolders
+            .Select(folder =>
+            {
+                existingFolders.TryGetValue(folder.Name, out var existingFolder);
+                var folderCards = existingFolder?.Items
+                    .GroupBy(card => card.Url.AbsoluteUri, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(
+                        group => group.Key,
+                        group => group.First(),
+                        StringComparer.OrdinalIgnoreCase)
+                    ?? new Dictionary<string, MediaCardItem>(
+                        StringComparer.OrdinalIgnoreCase);
+                var cards = folder.Items
+                    .Select(item => ReuseOrCreateCard(
+                        folderCards,
+                        item.Title,
+                        item.Url,
+                        item.ImageUrl,
+                        RezkaClientService.LocalizeCategory(item.Category)))
+                    .ToArray();
+
+                return existingFolder is not null &&
+                       existingFolder.ItemCount == folder.ItemCount &&
+                       existingFolder.Items.SequenceEqual(cards)
+                    ? existingFolder
+                    : new LibraryFolderItem(folder.Name, folder.ItemCount, cards);
+            })
+            .ToArray();
+        ReconcileCollection(
+            BookmarkFolders,
+            folders,
+            folder => folder.Name,
+            StringComparer.OrdinalIgnoreCase);
+
+        if (IsLibraryVisible)
+        {
+            StatusMessage = ContinueWatching.Count == 0 && BookmarkFolders.Count == 0
+                ? "В библиотеке пока ничего нет"
+                : "Библиотека синхронизирована";
+        }
+    }
+
+    private MediaCardItem ReuseOrCreateCard(
+        IReadOnlyDictionary<string, MediaCardItem> existing,
+        string title,
+        Uri url,
+        Uri? imageUrl,
+        string category)
+    {
+        if (existing.TryGetValue(url.AbsoluteUri, out var card) &&
+            string.Equals(card.Title, title, StringComparison.Ordinal) &&
+            string.Equals(card.Category, category, StringComparison.Ordinal))
+        {
+            return card;
+        }
+
+        return CreateCard(title, url, imageUrl, category);
+    }
+
+    private static void ReconcileCollection<T, TKey>(
+        ObservableCollection<T> target,
+        IReadOnlyList<T> desired,
+        Func<T, TKey> keySelector,
+        IEqualityComparer<TKey> comparer)
+        where TKey : notnull
+    {
+        for (var index = 0; index < desired.Count; index++)
+        {
+            var desiredItem = desired[index];
+            var desiredKey = keySelector(desiredItem);
+            var existingIndex = -1;
+            for (var candidate = index; candidate < target.Count; candidate++)
+            {
+                if (comparer.Equals(keySelector(target[candidate]), desiredKey))
+                {
+                    existingIndex = candidate;
+                    break;
+                }
+            }
+
+            if (existingIndex < 0)
+            {
+                target.Insert(index, desiredItem);
+                continue;
+            }
+
+            if (existingIndex != index)
+            {
+                target.Move(existingIndex, index);
+            }
+
+            if (!ReferenceEquals(target[index], desiredItem))
+            {
+                target[index] = desiredItem;
+            }
+        }
+
+        while (target.Count > desired.Count)
+        {
+            target.RemoveAt(target.Count - 1);
+        }
+    }
+
+    private void ApplyAuthentication(
+        AuthenticationState? state,
+        AccountProfile? profile = null)
     {
         IsAuthenticated = state?.IsAuthenticated == true;
-        IsPremium = state?.IsPremium == true;
-        AccountLabel = IsAuthenticated
-            ? IsPremium ? "Premium" : "Аккаунт"
-            : "Войти";
+        IsPremium = profile?.IsPremium ?? state?.IsPremium == true;
+        ProfileName = profile?.Username ?? "Профиль";
+        ProfileEmail = profile?.Email ?? string.Empty;
+        ProfileInitials = GetInitials(ProfileName);
+        ProfileImageSource = _images.LoadAsync(profile?.AvatarUrl, _rezka.Origin);
+        AccountLabel = IsPremium ? "Premium" : ProfileName;
     }
 
     private async Task RunBusyAsync(Func<CancellationToken, Task> action)
@@ -578,6 +1060,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             StatusMessage = "Операция отменена";
         }
+        catch (LoginRequiredException)
+        {
+            ShowAuthenticationRequired(
+                "Сессия истекла. Войдите в аккаунт ещё раз.");
+        }
         catch (Exception exception)
         {
             StatusMessage = ToUserMessage(exception);
@@ -590,15 +1077,159 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private void Navigate(Page page)
     {
+        IsProfilePopupOpen = false;
+        if (page != Page.Library)
+        {
+            ActiveCategory = null;
+        }
+
         IsHomeVisible = page == Page.Home;
-        IsSearchVisible = page == Page.Search;
+        IsLibraryVisible = page == Page.Library;
+        IsSettingsVisible = page == Page.Settings;
         IsDetailsVisible = page == Page.Details;
         IsPlayerVisible = page == Page.Player;
     }
 
+    private void ResetStartupState()
+    {
+        IsProfilePopupOpen = false;
+        IsStartupVisible = true;
+        IsStartupLoading = true;
+        IsStartupAuthenticationRequired = false;
+        IsSettingsCheckComplete = false;
+        IsAuthenticationCheckComplete = false;
+        IsCacheCheckComplete = false;
+        MirrorStatuses.Clear();
+        IsMirrorCheckRunning = true;
+        HasAvailableMirror = false;
+        IsAutoMirrorSelection = true;
+        StartupWizardStep = 0;
+        MirrorSelectorLabel = "Проверка подключения";
+        MirrorStatusMessage = string.Empty;
+        StartupProgress = 0;
+        StatusMessage = string.Empty;
+    }
+
+    private void SetStartupLoading(
+        string title,
+        string message,
+        int progress)
+    {
+        IsStartupVisible = true;
+        IsStartupLoading = true;
+        IsStartupAuthenticationRequired = false;
+        StartupTitle = title;
+        StartupMessage = message;
+        StartupProgress = progress;
+    }
+
+    private void ShowAuthenticationRequired(string message)
+    {
+        IsProfilePopupOpen = false;
+        IsStartupVisible = true;
+        IsStartupLoading = false;
+        IsStartupAuthenticationRequired = true;
+        StartupWizardStep = 0;
+        StartupTitle = "Вход в аккаунт";
+        StartupMessage = message;
+        Password = string.Empty;
+    }
+
+    private async Task RefreshMirrorsAsync(CancellationToken cancellationToken)
+    {
+        IsMirrorCheckRunning = true;
+        MirrorSelectorLabel = "Проверка подключения";
+        try
+        {
+            var candidates = RezkaMirrors.Defaults
+                .Concat(_settings.CustomMirrors)
+                .Append(_settings.Origin)
+                .Where(origin => !string.IsNullOrWhiteSpace(origin))
+                .Distinct(StringComparer.OrdinalIgnoreCase);
+            var probes = await _mirrorDiscovery.ProbeAsync(
+                candidates,
+                cancellationToken);
+
+            MirrorStatuses.Clear();
+            foreach (var probe in probes)
+            {
+                UpsertMirror(probe);
+            }
+        }
+        finally
+        {
+            IsMirrorCheckRunning = false;
+        }
+
+        SelectAutoMirror();
+    }
+
+    private void UpsertMirror(MirrorProbeResult probe)
+    {
+        var existingIndex = -1;
+        for (var index = 0; index < MirrorStatuses.Count; index++)
+        {
+            if (string.Equals(
+                    MirrorStatuses[index].Origin,
+                    probe.Origin,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                existingIndex = index;
+                break;
+            }
+        }
+
+        var item = new MirrorStatusItem(
+            probe.Origin,
+            probe.DisplayName,
+            probe.LatencyMilliseconds,
+            probe.IsAvailable,
+            !RezkaMirrors.IsDefault(probe.Origin),
+            false);
+        if (existingIndex < 0)
+        {
+            MirrorStatuses.Add(item);
+        }
+        else
+        {
+            MirrorStatuses[existingIndex] = item;
+        }
+
+        HasAvailableMirror = MirrorStatuses.Any(mirror => mirror.IsAvailable);
+    }
+
+    private void ApplyMirrorSelection(string? origin)
+    {
+        Origin = origin ?? string.Empty;
+        for (var index = 0; index < MirrorStatuses.Count; index++)
+        {
+            var item = MirrorStatuses[index];
+            var selected = !IsAutoMirrorSelection
+                && origin is not null
+                && string.Equals(
+                    item.Origin,
+                    origin,
+                    StringComparison.OrdinalIgnoreCase);
+            if (item.IsSelected != selected)
+            {
+                MirrorStatuses[index] = item with { IsSelected = selected };
+            }
+        }
+    }
+
+    private static string GetInitials(string value)
+    {
+        var parts = value
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Take(2)
+            .Select(part => char.ToUpperInvariant(part[0]))
+            .ToArray();
+        return parts.Length == 0 ? "R" : new string(parts);
+    }
+
     private static string ToUserMessage(Exception exception) => exception switch
     {
-        LoginFailedException => "Не удалось войти: проверьте логин и пароль",
+        LoginFailedException => "Не удалось войти: проверьте почту и пароль",
         LoginRequiredException => "Для этого действия нужно войти в аккаунт",
         PremiumRequiredException => "Выбранный перевод или качество требует Premium",
         CaptchaException => "Сайт запросил CAPTCHA. Откройте зеркало в браузере и повторите попытку",
@@ -615,14 +1246,25 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        _lifetimeCancellation.Cancel();
+        _librarySync.SnapshotChanged -= OnLibrarySnapshotChanged;
+        _librarySync.SyncFailed -= OnLibrarySyncFailed;
         _operationCancellation?.Cancel();
         _operationCancellation?.Dispose();
+        _lifetimeCancellation.Dispose();
     }
 
     private enum Page
     {
         Home,
-        Search,
+        Library,
+        Settings,
         Details,
         Player
     }

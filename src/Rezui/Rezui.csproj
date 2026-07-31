@@ -20,10 +20,9 @@
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="12.1.1" />
     <PackageReference Include="Avalonia.Desktop" Version="12.1.1" />
-    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.1" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.1" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
-    <PackageReference Include="HDRezka.NET" Version="0.0.1" />
+    <PackageReference Include="HDRezka.NET" Version="0.0.3" />
     <PackageReference Include="LibVLCSharp.Avalonia" Version="3.10.0" />
   </ItemGroup>
 
@@ -38,7 +37,7 @@
   <ItemGroup>
     <AvaloniaResource Include="Assets/**" />
     <None Include="../../LICENSE" Link="LICENSE" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../LICENSES/**" Link="LICENSES/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../README.md" Link="README.md" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="../../THIRD-PARTY-NOTICES.md" Link="THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

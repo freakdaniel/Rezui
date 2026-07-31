@@ -3,7 +3,13 @@ using Rezui.Models;
 
 namespace Rezui.Services;
 
-public sealed class RezkaClientService : IDisposable
+public interface ILibrarySnapshotProvider
+{
+    Task<AccountLibrarySnapshot> GetLibraryAsync(
+        CancellationToken cancellationToken = default);
+}
+
+public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
 {
     private readonly SettingsService _settingsService;
     private Client? _client;
@@ -24,11 +30,13 @@ public sealed class RezkaClientService : IDisposable
 
     public Media? CurrentMedia => _currentMedia;
 
+    internal void AttachSettings(AppSettings settings) => _settings = settings;
+
     public async Task<AuthenticationState?> InitializeAsync(
         AppSettings settings,
         CancellationToken cancellationToken = default)
     {
-        _settings = settings;
+        AttachSettings(settings);
         if (string.IsNullOrWhiteSpace(settings.Origin))
         {
             return null;
@@ -96,6 +104,28 @@ public sealed class RezkaClientService : IDisposable
 
         await _settingsService.SaveAsync(Settings, cancellationToken);
         return state;
+    }
+
+    public async Task<AccountProfile> GetProfileAsync(
+        CancellationToken cancellationToken = default)
+    {
+        EnsureConfigured();
+        return await _client!.Account.GetProfileAsync(cancellationToken);
+    }
+
+    public async Task<AccountLibrarySnapshot> GetLibraryAsync(
+        CancellationToken cancellationToken = default)
+    {
+        EnsureConfigured();
+        var continueWatchingTask =
+            _client!.Account.GetContinueWatchingAsync(cancellationToken);
+        var bookmarksTask =
+            _client.Account.GetBookmarksAsync(cancellationToken);
+
+        await Task.WhenAll(continueWatchingTask, bookmarksTask);
+        return new AccountLibrarySnapshot(
+            await continueWatchingTask,
+            await bookmarksTask);
     }
 
     public async Task LogoutAsync(CancellationToken cancellationToken = default)
@@ -235,3 +265,7 @@ public sealed class RezkaClientService : IDisposable
         _client?.Dispose();
     }
 }
+
+public sealed record AccountLibrarySnapshot(
+    IReadOnlyList<ContinueWatchingEntry> ContinueWatching,
+    IReadOnlyList<BookmarkFolder> BookmarkFolders);

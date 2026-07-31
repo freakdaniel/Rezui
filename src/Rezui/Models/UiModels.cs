@@ -22,6 +22,24 @@ public sealed record QualityItem(
 
 public sealed record SubtitleItem(string Title, Uri? Url);
 
+public sealed record MirrorStatusItem(
+    string Origin,
+    string DisplayName,
+    long? LatencyMilliseconds,
+    bool IsAvailable,
+    bool IsCustom,
+    bool IsSelected)
+{
+    public string StatusText => IsAvailable
+        ? $"{LatencyMilliseconds} мс"
+        : "Недоступно";
+}
+
+public sealed record LibraryFolderItem(
+    string Name,
+    int ItemCount,
+    IReadOnlyList<MediaCardItem> Items);
+
 public sealed class MediaCardItem
 {
     public MediaCardItem(

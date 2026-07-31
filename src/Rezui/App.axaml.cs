@@ -12,6 +12,8 @@ public sealed partial class App : Application
     private RezkaClientService? _rezka;
     private ImageCacheService? _images;
     private PlayerViewModel? _player;
+    private LibrarySyncWorker? _librarySync;
+    private MirrorDiscoveryService? _mirrorDiscovery;
 
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
@@ -20,10 +22,20 @@ public sealed partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var settings = new SettingsService();
+            var themes = new ThemeService();
             _rezka = new RezkaClientService(settings);
             _images = new ImageCacheService();
             _player = new PlayerViewModel();
-            var viewModel = new MainWindowViewModel(settings, _rezka, _images, _player);
+            _librarySync = new LibrarySyncWorker(_rezka);
+            _mirrorDiscovery = new MirrorDiscoveryService();
+            var viewModel = new MainWindowViewModel(
+                settings,
+                _rezka,
+                _images,
+                _player,
+                themes,
+                _librarySync,
+                _mirrorDiscovery);
 
             desktop.MainWindow = new MainWindow
             {
@@ -32,8 +44,10 @@ public sealed partial class App : Application
             desktop.Exit += (_, _) =>
             {
                 viewModel.Dispose();
+                _librarySync.Dispose();
                 _player.Dispose();
                 _images.Dispose();
+                _mirrorDiscovery.Dispose();
                 _rezka.Dispose();
             };
         }
