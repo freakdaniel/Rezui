@@ -37,52 +37,51 @@ public sealed class SoftSlideFadeTransition : IPageTransition
         var fromOpacity = from?.Opacity ?? 1;
         var toOpacity = to?.Opacity ?? 1;
 
-        if (from is not null)
-        {
-            var transform = new TranslateTransform();
-            from.RenderTransform = transform;
-            animations.Add(AnimateAsync(
-                transform,
-                TranslateTransform.XProperty,
-                0,
-                -direction * Offset,
-                Duration,
-                MotionEasing,
-                cancellationToken));
-            animations.Add(AnimateAsync(
-                from,
-                Visual.OpacityProperty,
-                1,
-                0,
-                FadeDuration,
-                FadeEasing,
-                cancellationToken));
-        }
-
-        if (to is not null)
-        {
-            var transform = new TranslateTransform(direction * Offset, 0);
-            to.RenderTransform = transform;
-            animations.Add(AnimateAsync(
-                transform,
-                TranslateTransform.XProperty,
-                direction * Offset,
-                0,
-                Duration,
-                MotionEasing,
-                cancellationToken));
-            animations.Add(AnimateAsync(
-                to,
-                Visual.OpacityProperty,
-                0,
-                1,
-                FadeDuration,
-                FadeEasing,
-                cancellationToken));
-        }
-
         try
         {
+            if (from is not null)
+            {
+                from.RenderTransform = new TranslateTransform();
+                animations.Add(AnimateAsync(
+                    from,
+                    TranslateTransform.XProperty,
+                    0,
+                    -direction * Offset,
+                    Duration,
+                    MotionEasing,
+                    cancellationToken));
+                animations.Add(AnimateAsync(
+                    from,
+                    Visual.OpacityProperty,
+                    1,
+                    0,
+                    FadeDuration,
+                    FadeEasing,
+                    cancellationToken));
+            }
+
+            if (to is not null)
+            {
+                to.IsVisible = true;
+                to.RenderTransform = new TranslateTransform(direction * Offset, 0);
+                animations.Add(AnimateAsync(
+                    to,
+                    TranslateTransform.XProperty,
+                    direction * Offset,
+                    0,
+                    Duration,
+                    MotionEasing,
+                    cancellationToken));
+                animations.Add(AnimateAsync(
+                    to,
+                    Visual.OpacityProperty,
+                    0,
+                    1,
+                    FadeDuration,
+                    FadeEasing,
+                    cancellationToken));
+            }
+
             await Task.WhenAll(animations);
         }
         finally

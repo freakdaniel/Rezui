@@ -328,14 +328,14 @@
                   </StackPanel>
                   <TextBlock
                       Classes="display"
-                      Text="Смотреть проще.&#x0a;Возвращаться приятнее."
+                      Text="Смотреть проще&#x0a;Возвращаться приятнее"
                       TextWrapping="Wrap" />
                   <TextBlock
                       MaxWidth="620"
                       Classes="muted"
                       FontSize="15"
                       LineHeight="22"
-                      Text="Поиск, сохранённые позиции, закладки и профиль HDRezka — в одном спокойном десктопном пространстве."
+                      Text="Поиск, сохранённые позиции, закладки и профиль HDRezka — в одном спокойном десктопном пространстве"
                       TextWrapping="Wrap" />
                   <Grid MaxWidth="610" ColumnDefinitions="*,Auto">
                     <TextBox
@@ -436,7 +436,7 @@
                       Foreground="{DynamicResource Brush.Text.Secondary}"
                       FontSize="30"
                       Text="history" />
-                  <TextBlock Classes="muted" Text="Здесь появятся недавно открытые фильмы и сериалы." />
+                  <TextBlock Classes="muted" Text="Здесь появятся недавно открытые фильмы и сериалы" />
                 </StackPanel>
               </Border>
             </StackPanel>
@@ -536,14 +536,14 @@
               Spacing="24">
             <StackPanel Spacing="5">
               <TextBlock Classes="h1" Text="Настройки" />
-              <TextBlock Classes="muted" Text="Внешний вид, подключение и текущая сессия." />
+              <TextBlock Classes="muted" Text="Внешний вид, подключение и текущая сессия" />
             </StackPanel>
 
             <Border Padding="24" Classes="card">
               <StackPanel Spacing="18">
                 <StackPanel Spacing="5">
                   <TextBlock Classes="h2" Text="Оформление" />
-                  <TextBlock Classes="muted" Text="Выберите тему интерфейса Rezui." />
+                  <TextBlock Classes="muted" Text="Выберите тему интерфейса Rezui" />
                 </StackPanel>
                 <WrapPanel>
                   <Button
@@ -977,16 +977,25 @@
 
     <!-- Startup and mandatory authentication -->
     <Grid
-        IsVisible="{Binding IsStartupVisible}"
+        Classes="startup-overlay"
+        Classes.visible="{Binding IsStartupVisible}"
+        IsVisible="{Binding IsStartupPresented}"
         Background="{DynamicResource Brush.App.Background}"
         RowDefinitions="*,Auto">
       <StackPanel
+          x:Name="StartupWizardContent"
           Grid.Row="0"
           Width="560"
           Margin="0,0,0,30"
           HorizontalAlignment="Center"
-          VerticalAlignment="Center">
+          VerticalAlignment="Center"
+          Classes="startup-wizard-content"
+          Classes.visible="{Binding !IsStartupLoading}"
+          IsVisible="{Binding !IsStartupLoading}"
+          IsHitTestVisible="{Binding !IsStartupLoading}">
         <Carousel
+            x:Name="StartupWizardCarousel"
+            Height="460"
             IsSwipeEnabled="False"
             SelectedIndex="{Binding StartupWizardStep}">
           <Carousel.PageTransition>
@@ -996,20 +1005,27 @@
           <StackPanel
               Width="440"
               HorizontalAlignment="Center"
+              VerticalAlignment="Center"
               Spacing="26">
-            <StackPanel
+            <Grid
+                Width="260"
+                Height="78"
                 Margin="0,0,0,4"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
-                Orientation="Horizontal"
-                Spacing="18">
+                IsHitTestVisible="False">
               <Image
                   Width="78"
                   Height="78"
+                  Classes="login-fox-logo"
+                  Classes.visible="{Binding IsLoginFoxVisible}"
                   RenderOptions.BitmapInterpolationMode="HighQuality"
                   Source="avares://Rezui/Assets/rezui.png"
                   Stretch="Uniform" />
               <StackPanel
+                  Classes="login-connection-dots"
+                  Classes.visible="{Binding AreLoginDotsVisible}"
+                  HorizontalAlignment="Center"
                   VerticalAlignment="Center"
                   Orientation="Horizontal"
                   Spacing="7">
@@ -1020,11 +1036,13 @@
               <Image
                   Width="70"
                   Height="70"
-                  Margin="12,0,0,0"
+                  HorizontalAlignment="Center"
+                  Classes="login-rezka-logo"
+                  Classes.shifted="{Binding IsLoginLogoShifted}"
                   RenderOptions.BitmapInterpolationMode="HighQuality"
                   Source="avares://Rezui/Assets/hdrezka.png"
                   Stretch="Uniform" />
-            </StackPanel>
+            </Grid>
 
             <StackPanel HorizontalAlignment="Center" Spacing="5">
               <TextBlock
@@ -1041,55 +1059,9 @@
                   TextWrapping="Wrap" />
             </StackPanel>
 
-            <StackPanel IsVisible="{Binding IsStartupLoading}" Spacing="16">
-              <ProgressBar
-                  Height="5"
-                  Maximum="100"
-                  Value="{Binding StartupProgress}" />
-              <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
-                <Border
-                    Padding="13"
-                    Classes="status-step"
-                    Classes.complete="{Binding IsSettingsCheckComplete}">
-                  <StackPanel Spacing="7">
-                    <TextBlock
-                        Classes="symbol filled"
-                        Foreground="{DynamicResource Brush.Text.Secondary}"
-                        Text="tune" />
-                    <TextBlock FontSize="11" FontWeight="SemiBold" Text="Настройки" />
-                  </StackPanel>
-                </Border>
-                <Border
-                    Grid.Column="1"
-                    Padding="13"
-                    Classes="status-step"
-                    Classes.complete="{Binding IsAuthenticationCheckComplete}">
-                  <StackPanel Spacing="7">
-                    <TextBlock
-                        Classes="symbol filled"
-                        Foreground="{DynamicResource Brush.Text.Secondary}"
-                        Text="verified_user" />
-                    <TextBlock FontSize="11" FontWeight="SemiBold" Text="Авторизация" />
-                  </StackPanel>
-                </Border>
-                <Border
-                    Grid.Column="2"
-                    Padding="13"
-                    Classes="status-step"
-                    Classes.complete="{Binding IsCacheCheckComplete}">
-                  <StackPanel Spacing="7">
-                    <TextBlock
-                        Classes="symbol filled"
-                        Foreground="{DynamicResource Brush.Text.Secondary}"
-                        Text="cached" />
-                    <TextBlock FontSize="11" FontWeight="SemiBold" Text="Локальные данные" />
-                  </StackPanel>
-                </Border>
-              </Grid>
-            </StackPanel>
-
             <StackPanel IsVisible="{Binding IsStartupAuthenticationRequired}" Spacing="15">
               <TextBox
+                  x:Name="LoginEmailInput"
                   Classes="login-input"
                   PlaceholderText="Электронная почта"
                   Text="{Binding Login}"
@@ -1098,50 +1070,80 @@
                   <TextBlock Classes="symbol login-field-icon" Text="mail" />
                 </TextBox.InnerLeftContent>
               </TextBox>
-              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-                <TextBox
-                    Classes="login-input"
-                    PasswordChar="●"
-                    PlaceholderText="Пароль"
-                    Text="{Binding Password}"
-                    VerticalContentAlignment="Center">
-                  <TextBox.InnerLeftContent>
-                    <TextBlock Classes="symbol login-field-icon" Text="lock" />
-                  </TextBox.InnerLeftContent>
-                  <TextBox.KeyBindings>
-                    <KeyBinding Gesture="Enter" Command="{Binding LoginCommand}" />
-                  </TextBox.KeyBindings>
-                </TextBox>
-                <ToggleButton
-                    Grid.Column="1"
-                    Classes="remember"
-                    Content="Запомнить"
-                    IsChecked="{Binding RememberSession}" />
-              </Grid>
+              <TextBox
+                  x:Name="LoginPasswordInput"
+                  Classes="login-input"
+                  PasswordChar="●"
+                  PlaceholderText="Пароль"
+                  Text="{Binding Password}"
+                  VerticalContentAlignment="Center">
+                <TextBox.InnerLeftContent>
+                  <TextBlock Classes="symbol login-field-icon" Text="lock" />
+                </TextBox.InnerLeftContent>
+                <TextBox.KeyBindings>
+                  <KeyBinding Gesture="Enter" Command="{Binding LoginCommand}" />
+                </TextBox.KeyBindings>
+              </TextBox>
               <Button
+                  x:Name="LoginSubmitButton"
                   HorizontalAlignment="Stretch"
                   Classes="login-primary"
+                  Classes.running="{Binding IsLoginRunning}"
                   Command="{Binding LoginCommand}"
                   IsEnabled="{Binding CanLogin}">
-                <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="8">
-                  <TextBlock
+                <Grid
+                    MinWidth="92"
+                    Height="24"
+                    Classes="login-button-content"
+                    Classes.running="{Binding IsLoginRunning}">
+                  <StackPanel
+                      HorizontalAlignment="Center"
                       VerticalAlignment="Center"
-                      Classes="symbol filled"
-                      Foreground="Black"
-                      Text="login" />
-                  <TextBlock
-                      Grid.Column="1"
+                      Classes="login-button-idle"
+                      Orientation="Horizontal">
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        Foreground="{DynamicResource Brush.Text.OnContrast}"
+                        Text="Войти" />
+                  </StackPanel>
+                  <StackPanel
+                      HorizontalAlignment="Center"
                       VerticalAlignment="Center"
-                      Foreground="Black"
-                      Text="Войти" />
+                      Classes="login-button-busy"
+                      Orientation="Horizontal"
+                      Spacing="8">
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        Classes="symbol login-spinner"
+                        Foreground="{DynamicResource Brush.Text.OnContrast}"
+                        Text="progress_activity">
+                      <TextBlock.RenderTransform>
+                        <RotateTransform />
+                      </TextBlock.RenderTransform>
+                    </TextBlock>
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        Foreground="{DynamicResource Brush.Text.OnContrast}"
+                        Text="Вхожу" />
+                  </StackPanel>
                 </Grid>
               </Button>
+              <TextBlock
+                  MinHeight="32"
+                  Classes="login-status"
+                  Classes.visible="{Binding IsLoginStatusVisible}"
+                  Foreground="{StaticResource Brush.Danger}"
+                  FontSize="12"
+                  Text="{Binding LoginStatusMessage}"
+                  TextAlignment="Center"
+                  TextWrapping="Wrap" />
             </StackPanel>
           </StackPanel>
 
           <StackPanel
               Width="440"
               HorizontalAlignment="Center"
+              VerticalAlignment="Center"
               Spacing="22">
             <StackPanel HorizontalAlignment="Center" Spacing="5">
               <TextBlock
@@ -1159,66 +1161,70 @@
             </StackPanel>
 
             <StackPanel Spacing="0">
-              <Button
-                  Classes="mirror-option"
-                  Classes.active="{Binding IsAutoMirrorSelection}"
-                  Command="{Binding SelectAutoMirrorCommand}">
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                  <TextBlock
-                      VerticalAlignment="Center"
-                      FontWeight="SemiBold"
-                      Text="Автовыбор" />
-                  <TextBlock
-                      Grid.Column="1"
-                      VerticalAlignment="Center"
-                      Classes="muted"
-                      FontSize="12"
-                      Text="минимальный пинг" />
-                </Grid>
-              </Button>
+              <Border Classes="mirror-list">
+                <StackPanel Spacing="0">
+                  <Button
+                      Classes="mirror-option"
+                      Classes.active="{Binding IsAutoMirrorSelection}"
+                      Command="{Binding SelectAutoMirrorCommand}">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                      <TextBlock
+                          VerticalAlignment="Center"
+                          FontWeight="Normal"
+                          Text="Автовыбор" />
+                      <TextBlock
+                          Grid.Column="1"
+                          VerticalAlignment="Center"
+                          Classes="muted"
+                          FontSize="12"
+                          Text="минимальный пинг" />
+                    </Grid>
+                  </Button>
 
-              <ScrollViewer MaxHeight="190" VerticalScrollBarVisibility="Auto">
-                <ItemsControl ItemsSource="{Binding MirrorStatuses}">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="models:MirrorStatusItem">
-                      <Button
-                          Margin="0"
-                          Classes="mirror-option"
-                          Classes.active="{Binding IsSelected}"
-                          Classes.unavailable="{Binding !IsAvailable}"
-                          Command="{Binding #RootWindow.((vm:MainWindowViewModel)DataContext).SelectMirrorCommand}"
-                          CommandParameter="{Binding}"
-                          IsEnabled="{Binding IsAvailable}">
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                          <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock
-                                VerticalAlignment="Center"
-                                FontWeight="SemiBold"
-                                Text="{Binding DisplayName}" />
-                            <TextBlock
-                                VerticalAlignment="Center"
-                                Classes="muted"
-                                FontSize="11"
-                                IsVisible="{Binding IsCustom}"
-                                Text="своё" />
-                          </StackPanel>
-                          <TextBlock
-                              Grid.Column="1"
-                              VerticalAlignment="Center"
-                              Classes="mirror-latency"
+                  <ScrollViewer MaxHeight="190" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding MirrorStatuses}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="models:MirrorStatusItem">
+                          <Button
+                              Margin="0"
+                              Classes="mirror-option"
+                              Classes.active="{Binding IsSelected}"
                               Classes.unavailable="{Binding !IsAvailable}"
-                              Text="{Binding StatusText}" />
-                        </Grid>
-                      </Button>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
-              </ScrollViewer>
+                              Command="{Binding #RootWindow.((vm:MainWindowViewModel)DataContext).SelectMirrorCommand}"
+                              CommandParameter="{Binding}"
+                              IsEnabled="{Binding IsAvailable}">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                              <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    FontWeight="Normal"
+                                    Text="{Binding DisplayName}" />
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    Classes="muted"
+                                    FontSize="11"
+                                    IsVisible="{Binding IsCustom}"
+                                    Text="своё" />
+                              </StackPanel>
+                              <TextBlock
+                                  Grid.Column="1"
+                                  VerticalAlignment="Center"
+                                  Classes="mirror-latency"
+                                  Classes.unavailable="{Binding !IsAvailable}"
+                                  Text="{Binding StatusText}" />
+                            </Grid>
+                          </Button>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </ScrollViewer>
+                </StackPanel>
+              </Border>
 
               <StackPanel Margin="0,10,0,0" Spacing="8">
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                   <TextBox
-                      Classes="mirror-custom-input"
+                      Classes="login-input mirror-custom-input"
                       PlaceholderText="https://example.com"
                       Text="{Binding CustomMirror}"
                       VerticalContentAlignment="Center">
@@ -1227,13 +1233,54 @@
                     </TextBox.KeyBindings>
                   </TextBox>
                   <Button
+                      x:Name="MirrorUseButton"
                       Grid.Column="1"
                       Classes="mirror-use"
+                      Classes.running="{Binding IsUsingCustomMirror}"
                       Command="{Binding UseCustomMirrorCommand}"
-                      Content="Использовать"
-                      IsEnabled="{Binding !IsUsingCustomMirror}" />
+                      IsEnabled="{Binding !IsUsingCustomMirror}">
+                    <Grid
+                        MinWidth="104"
+                        Height="24"
+                        Classes="login-button-content"
+                        Classes.running="{Binding IsUsingCustomMirror}">
+                      <StackPanel
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center"
+                          Classes="login-button-idle"
+                          Orientation="Horizontal">
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            Foreground="{DynamicResource Brush.Text.OnContrast}"
+                            Text="Использовать" />
+                      </StackPanel>
+                      <StackPanel
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center"
+                          Classes="login-button-busy"
+                          Orientation="Horizontal"
+                          Spacing="8">
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            Classes="symbol login-spinner"
+                            Foreground="{DynamicResource Brush.Text.OnContrast}"
+                            Text="progress_activity">
+                          <TextBlock.RenderTransform>
+                            <RotateTransform />
+                          </TextBlock.RenderTransform>
+                        </TextBlock>
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            Foreground="{DynamicResource Brush.Text.OnContrast}"
+                            Text="Проверяю" />
+                      </StackPanel>
+                    </Grid>
+                  </Button>
                 </Grid>
                 <TextBlock
+                    MinHeight="16"
+                    Classes="mirror-status"
+                    Classes.visible="{Binding IsMirrorStatusVisible}"
                     Foreground="{DynamicResource Brush.Text.Secondary}"
                     FontSize="11"
                     Text="{Binding MirrorStatusMessage}"
@@ -1249,6 +1296,10 @@
           Width="320"
           Margin="0,0,0,24"
           HorizontalAlignment="Center"
+          Classes="startup-wizard-content"
+          Classes.visible="{Binding !IsStartupLoading}"
+          IsVisible="{Binding !IsStartupLoading}"
+          IsHitTestVisible="{Binding !IsStartupLoading}"
           IsSwipeEnabled="False"
           SelectedIndex="{Binding StartupWizardStep}">
         <Carousel.PageTransition>
@@ -1302,6 +1353,38 @@
           </Grid>
         </Button>
       </Carousel>
+
+      <Grid
+          x:Name="StartupLoadingContent"
+          Grid.RowSpan="2"
+          Classes="startup-loading-content"
+          IsVisible="{Binding IsStartupLoading}"
+          IsHitTestVisible="{Binding IsStartupLoading}">
+        <StackPanel
+            Width="440"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Spacing="24">
+          <Image
+              Width="88"
+              Height="88"
+              HorizontalAlignment="Center"
+              RenderOptions.BitmapInterpolationMode="HighQuality"
+              Source="avares://Rezui/Assets/rezui.png"
+              Stretch="Uniform" />
+          <TextBlock
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              Classes="symbol login-spinner"
+              FontSize="30"
+              Foreground="{DynamicResource Brush.Text.Secondary}"
+              Text="progress_activity">
+            <TextBlock.RenderTransform>
+              <RotateTransform />
+            </TextBlock.RenderTransform>
+          </TextBlock>
+        </StackPanel>
+      </Grid>
     </Grid>
 
     <!-- Playback options -->
@@ -1317,7 +1400,7 @@
         <StackPanel Spacing="18">
           <StackPanel Spacing="5">
             <TextBlock Classes="h2" Text="Запустить просмотр" />
-            <TextBlock Classes="muted" Text="Выберите качество и субтитры." />
+            <TextBlock Classes="muted" Text="Выберите качество и субтитры" />
           </StackPanel>
           <StackPanel Spacing="7">
             <TextBlock Classes="eyebrow" Text="КАЧЕСТВО" />

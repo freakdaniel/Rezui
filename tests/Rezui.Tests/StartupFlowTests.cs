@@ -1,12 +1,49 @@
+using Avalonia.Controls;
+using Avalonia.Headless.XUnit;
 using Rezui.Models;
 using Rezui.Services;
 using Rezui.ViewModels;
+using Rezui.Views;
 using Xunit;
 
 namespace Rezui.Tests;
 
 public sealed class StartupFlowTests
 {
+    [AvaloniaFact]
+    public async Task StartupShowsOnlyLoadingThenOnlyLoginWhenSessionIsMissing()
+    {
+        using var fixture = new StartupFixture();
+        var viewModel = fixture.CreateViewModel();
+        var window = new MainWindow
+        {
+            DataContext = viewModel
+        };
+        var loading = Assert.IsType<Grid>(
+            window.FindControl<Grid>("StartupLoadingContent"));
+        var wizard = Assert.IsType<StackPanel>(
+            window.FindControl<StackPanel>("StartupWizardContent"));
+
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            Assert.True(loading.IsVisible);
+            Assert.False(wizard.IsVisible);
+
+            await viewModel.Initialization;
+            window.UpdateLayout();
+
+            Assert.False(loading.IsVisible);
+            Assert.True(wizard.IsVisible);
+            Assert.True(viewModel.IsStartupAuthenticationRequired);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [Fact]
     public async Task StartupUsesDefaultMirrorAndRequestsLoginWhenSettingsAreMissing()
     {
@@ -16,6 +53,8 @@ public sealed class StartupFlowTests
         await viewModel.Initialization;
 
         Assert.True(viewModel.IsStartupVisible);
+        Assert.True(viewModel.IsStartupPresented);
+        Assert.False(viewModel.IsStartupLoading);
         Assert.True(viewModel.IsStartupAuthenticationRequired);
         Assert.Equal(RezkaMirrors.Primary, viewModel.Origin);
         Assert.Equal(3, viewModel.MirrorStatuses.Count);
@@ -75,6 +114,24 @@ public sealed class StartupFlowTests
     }
 
     [Fact]
+    public async Task ChangingMirrorSelectionKeepsRowsAliveForStateTransitions()
+    {
+        using var fixture = new StartupFixture();
+        var viewModel = fixture.CreateViewModel();
+        await viewModel.Initialization;
+        var first = viewModel.MirrorStatuses[0];
+        var second = viewModel.MirrorStatuses[1];
+
+        viewModel.SelectMirrorCommand.Execute(first);
+        viewModel.SelectMirrorCommand.Execute(second);
+
+        Assert.Same(first, viewModel.MirrorStatuses[0]);
+        Assert.Same(second, viewModel.MirrorStatuses[1]);
+        Assert.False(first.IsSelected);
+        Assert.True(second.IsSelected);
+    }
+
+    [Fact]
     public async Task MirrorWizardCannotOpenWhileConnectionCheckIsRunning()
     {
         using var fixture = new StartupFixture();
@@ -85,6 +142,26 @@ public sealed class StartupFlowTests
         viewModel.OpenMirrorWizardCommand.Execute(null);
 
         Assert.Equal(0, viewModel.StartupWizardStep);
+    }
+
+    [Fact]
+    public async Task InvalidLoginUsesStatusAreaWithoutChangingPageCopy()
+    {
+        using var fixture = new StartupFixture();
+        var viewModel = fixture.CreateViewModel();
+        await viewModel.Initialization;
+        var title = viewModel.StartupTitle;
+        var message = viewModel.StartupMessage;
+
+        viewModel.Login = "not-an-email";
+        viewModel.Password = "password";
+        await viewModel.LoginCommand.ExecuteAsync(null);
+
+        Assert.Equal(title, viewModel.StartupTitle);
+        Assert.Equal(message, viewModel.StartupMessage);
+        Assert.Equal("Введите корректную почту и пароль", viewModel.LoginStatusMessage);
+        Assert.True(viewModel.IsLoginStatusVisible);
+        Assert.False(viewModel.IsLoginRunning);
     }
 
     [Fact]
@@ -103,6 +180,7 @@ public sealed class StartupFlowTests
             TestContext.Current.CancellationToken);
 
         Assert.True(viewModel.CanLogin);
+        Assert.True(viewModel.IsMirrorStatusVisible);
         Assert.Equal("https://custom.example.com", viewModel.Origin);
         Assert.Equal("Зеркало: custom.example.com", viewModel.MirrorSelectorLabel);
         Assert.True(viewModel.IsLoginWizardStep);
@@ -124,11 +202,37 @@ public sealed class StartupFlowTests
             TestContext.Current.CancellationToken);
 
         Assert.False(viewModel.CanLogin);
+        Assert.True(viewModel.IsMirrorStatusVisible);
         Assert.Equal(string.Empty, viewModel.Origin);
         Assert.DoesNotContain("https://offline.example.com", settings.CustomMirrors);
         Assert.DoesNotContain(
             viewModel.MirrorStatuses,
             item => item.Origin == "https://offline.example.com");
+    }
+
+    [Fact]
+    public async Task ReachableNonRezkaSiteIsNotAddedOrSelected()
+    {
+        using var fixture = new StartupFixture();
+        fixture.Mirrors.AllUnavailable = true;
+        var viewModel = fixture.CreateViewModel();
+        await viewModel.Initialization;
+        fixture.Mirrors.AllUnavailable = false;
+        fixture.Mirrors.RejectRezkaValidation = true;
+        viewModel.OpenMirrorWizardCommand.Execute(null);
+        viewModel.CustomMirror = "unrelated.example.com";
+
+        await viewModel.UseCustomMirrorCommand.ExecuteAsync(null);
+        var settings = await fixture.Settings.LoadAsync(
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal("Адрес доступен, но не является зеркалом HDRezka", viewModel.MirrorStatusMessage);
+        Assert.True(viewModel.IsMirrorStatusVisible);
+        Assert.Equal(string.Empty, viewModel.Origin);
+        Assert.DoesNotContain("https://unrelated.example.com", settings.CustomMirrors);
+        Assert.DoesNotContain(
+            viewModel.MirrorStatuses,
+            item => item.Origin == "https://unrelated.example.com");
     }
 
     [Fact]
@@ -205,6 +309,16 @@ public sealed class StartupFlowTests
         };
 
         public bool AllUnavailable { get; set; }
+
+        public bool RejectRezkaValidation { get; set; }
+
+        public Task<bool> IsRezkaMirrorAsync(
+            string origin,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(!RejectRezkaValidation);
+        }
 
         public Task<IReadOnlyList<MirrorProbeResult>> ProbeAsync(
             IEnumerable<string> origins,

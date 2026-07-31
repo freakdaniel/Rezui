@@ -2,8 +2,10 @@ using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Rezui.Services;
 using Rezui.ViewModels;
 
@@ -25,6 +27,30 @@ public sealed partial class MainWindow : Window
         DataContextChanged += OnDataContextChanged;
         ActualThemeVariantChanged += OnActualThemeVariantChanged;
         Closed += OnClosed;
+        AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
+        AddHandler(PointerPressedEvent, OnPreviewPointerPressed, RoutingStrategies.Tunnel);
+    }
+
+    private void OnPreviewKeyDown(object? sender, KeyEventArgs eventArgs)
+    {
+        if (eventArgs.Key == Key.Escape && FocusManager?.GetFocusedElement() is TextBox)
+        {
+            FocusManager.Focus(null);
+        }
+    }
+
+    private void OnPreviewPointerPressed(object? sender, PointerPressedEventArgs eventArgs)
+    {
+        if (FocusManager?.GetFocusedElement() is not TextBox)
+        {
+            return;
+        }
+
+        var source = eventArgs.Source as Visual;
+        if (source?.FindAncestorOfType<TextBox>(includeSelf: true) is null)
+        {
+            FocusManager.Focus(null);
+        }
     }
 
     private void OnActivated(object? sender, EventArgs eventArgs)

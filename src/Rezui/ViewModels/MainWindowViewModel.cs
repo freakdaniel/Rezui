@@ -12,6 +12,9 @@ namespace Rezui.ViewModels;
 
 public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 {
+    private const string LoginPrompt =
+        "Войдите в приложение используя свой персональный аккаунт HDRezka";
+
     private readonly SettingsService _settingsService;
     private readonly RezkaClientService _rezka;
     private readonly ImageCacheService _images;
@@ -20,6 +23,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private readonly IMirrorDiscoveryService _mirrorDiscovery;
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private CancellationTokenSource? _operationCancellation;
+    private CancellationTokenSource? _loginStatusCancellation;
+    private CancellationTokenSource? _mirrorStatusCancellation;
     private AppSettings _settings = new();
     private Media? _media;
     private MediaStream? _resolvedStream;
@@ -144,6 +149,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _isStartupVisible = true;
 
+    [ObservableProperty]
+    private bool _isStartupPresented = true;
+
     public bool IsShellVisible => !IsStartupVisible;
 
     partial void OnIsStartupVisibleChanged(bool value) =>
@@ -177,6 +185,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private string _mirrorStatusMessage = string.Empty;
 
     [ObservableProperty]
+    private bool _isMirrorStatusVisible;
+
+    [ObservableProperty]
     private bool _isUsingCustomMirror;
 
     [ObservableProperty]
@@ -199,18 +210,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private string _startupMessage = "Читаем настройки приложения";
 
     [ObservableProperty]
-    private int _startupProgress;
-
-    [ObservableProperty]
-    private bool _isSettingsCheckComplete;
-
-    [ObservableProperty]
-    private bool _isAuthenticationCheckComplete;
-
-    [ObservableProperty]
-    private bool _isCacheCheckComplete;
-
-    [ObservableProperty]
     private string _statusMessage = string.Empty;
 
     [ObservableProperty]
@@ -226,7 +225,22 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private string _password = string.Empty;
 
     [ObservableProperty]
-    private bool _rememberSession = true;
+    private string _loginStatusMessage = string.Empty;
+
+    [ObservableProperty]
+    private bool _isLoginStatusVisible;
+
+    [ObservableProperty]
+    private bool _isLoginRunning;
+
+    [ObservableProperty]
+    private bool _isLoginLogoShifted;
+
+    [ObservableProperty]
+    private bool _isLoginFoxVisible;
+
+    [ObservableProperty]
+    private bool _areLoginDotsVisible;
 
     [ObservableProperty]
     private ThemePreference _selectedTheme = ThemePreference.System;
@@ -323,38 +337,57 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task LoginAsync()
     {
+        ClearLoginStatus();
+
         if (!CanLogin)
         {
-            StartupMessage = "Добавьте доступное зеркало, чтобы войти.";
+            ShowLoginStatus("Добавьте доступное зеркало, чтобы войти");
             return;
         }
 
         if (!MailAddress.TryCreate(Login.Trim(), out _) || string.IsNullOrEmpty(Password))
         {
-            StartupMessage = "Введите корректную почту и пароль";
+            ShowLoginStatus("Введите корректную почту и пароль");
             return;
         }
 
-        SetStartupLoading(
-            "Проверяем аккаунт",
-            "HDRezka подтверждает данные и создаёт сессию",
-            55);
+        IsLoginRunning = true;
 
         try
         {
+            await PlayLoginCompositionAsync(_lifetimeCancellation.Token);
             await _rezka.ConfigureOriginAsync(Origin);
             _settings = _rezka.Settings;
             var state = await _rezka.LoginAsync(
                 Login,
-                Password,
-                RememberSession);
+                Password);
             Password = string.Empty;
             await CompleteStartupAsync(state);
         }
         catch (Exception exception)
         {
-            ShowAuthenticationRequired(ToUserMessage(exception));
+            IsLoginRunning = false;
+            ResetLoginComposition();
+            ShowLoginStatus(ToUserMessage(exception));
+            Password = string.Empty;
         }
+    }
+
+    private async Task PlayLoginCompositionAsync(CancellationToken cancellationToken)
+    {
+        IsLoginLogoShifted = true;
+        await Task.Delay(280, cancellationToken);
+        IsLoginFoxVisible = true;
+        await Task.Delay(200, cancellationToken);
+        AreLoginDotsVisible = true;
+        await Task.Delay(200, cancellationToken);
+    }
+
+    private void ResetLoginComposition()
+    {
+        IsLoginLogoShifted = false;
+        IsLoginFoxVisible = false;
+        AreLoginDotsVisible = false;
     }
 
     [RelayCommand]
@@ -398,7 +431,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task UseCustomMirrorAsync()
     {
-        MirrorStatusMessage = string.Empty;
+        ClearMirrorStatus();
         Uri normalized;
         try
         {
@@ -406,7 +439,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
         catch (ArgumentException)
         {
-            MirrorStatusMessage = "Введите адрес зеркала, например https://example.com.";
+            ShowMirrorStatus("Введите адрес зеркала, например https://example.com");
             return;
         }
 
@@ -421,7 +454,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
             if (!probe.IsAvailable)
             {
-                MirrorStatusMessage = "Зеркало не отвечает. Проверьте адрес или попробуйте другое.";
+                ShowMirrorStatus("Зеркало не отвечает. Проверьте адрес или попробуйте другое");
+                return;
+            }
+
+            if (!await _mirrorDiscovery.IsRezkaMirrorAsync(
+                    origin,
+                    _lifetimeCancellation.Token))
+            {
+                ShowMirrorStatus("Адрес доступен, но не является зеркалом HDRezka");
                 return;
             }
 
@@ -443,7 +484,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                     probe.Origin,
                     StringComparison.OrdinalIgnoreCase)));
             CustomMirror = string.Empty;
-            MirrorStatusMessage = "Пользовательское зеркало выбрано";
+            ShowMirrorStatus("Пользовательское зеркало выбрано");
             StartupWizardStep = 0;
         }
         catch (OperationCanceledException) when (_disposed)
@@ -464,7 +505,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             await _rezka.LogoutAsync(cancellationToken);
             ApplyAuthentication(null);
-            ShowAuthenticationRequired("Вы вышли из аккаунта.");
+            ShowAuthenticationRequired();
         });
     }
 
@@ -649,48 +690,41 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private async Task InitializeAsync()
     {
         ResetStartupState();
+        var cancellationToken = _lifetimeCancellation.Token;
+        var minimumLoadingTime = Task.Delay(
+            TimeSpan.FromMilliseconds(480),
+            cancellationToken);
         try
         {
-            var cancellationToken = _lifetimeCancellation.Token;
-            SetStartupLoading(
-                "Запускаем Rezui",
-                "Читаем настройки приложения",
-                15);
+            SetStartupLoading();
             _settings = await _settingsService.LoadAsync(cancellationToken);
             _rezka.AttachSettings(_settings);
-            RememberSession = _settings.RememberSession;
             SelectedTheme = _settings.Theme;
             _themes.Apply(SelectedTheme);
             RebuildRecent();
-            IsSettingsCheckComplete = true;
-
-            SetStartupLoading(
-                "Ищем зеркало",
-                "Сравниваем доступность и задержку подключений",
-                30);
+            SetStartupLoading();
             await RefreshMirrorsAsync(cancellationToken);
             if (!HasAvailableMirror)
             {
+                await minimumLoadingTime;
                 ShowAuthenticationRequired(
-                    "Ни одно встроенное зеркало не отвечает. Добавьте доступный адрес в меню подключения.");
+                    "Ни одно встроенное зеркало не отвечает. Добавьте доступный адрес в меню подключения");
                 return;
             }
 
             await _rezka.ConfigureOriginAsync(Origin, cancellationToken);
             _settings = _rezka.Settings;
 
-            SetStartupLoading(
-                "Проверяем сессию",
-                "Подтверждаем авторизацию на выбранном зеркале",
-                45);
+            SetStartupLoading();
             var state = await _rezka.InitializeAsync(_settings, cancellationToken);
             if (state?.IsAuthenticated != true)
             {
-                ShowAuthenticationRequired(
-                    "HDRezka требует авторизацию. Войдите, чтобы открыть приложение.");
+                await minimumLoadingTime;
+                ShowAuthenticationRequired();
                 return;
             }
 
+            await minimumLoadingTime;
             await CompleteStartupAsync(state);
         }
         catch (OperationCanceledException) when (_disposed)
@@ -699,32 +733,33 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
         catch (Exception exception)
         {
+            try
+            {
+                await minimumLoadingTime;
+            }
+            catch (OperationCanceledException) when (_disposed)
+            {
+                return;
+            }
+
             ShowAuthenticationRequired(
-                $"{ToUserMessage(exception)} Выберите другое зеркало и войдите снова.");
+                $"{WithoutTrailingPeriod(ToUserMessage(exception))} Выберите другое зеркало и войдите снова");
         }
     }
 
     private async Task CompleteStartupAsync(AuthenticationState state)
     {
-        IsAuthenticationCheckComplete = true;
-        SetStartupLoading(
-            "Загружаем профиль",
-            "Получаем имя, подписку и изображение аккаунта",
-            72);
+        SetStartupLoading();
 
         var profile = await _rezka.GetProfileAsync();
         ApplyAuthentication(state, profile);
 
-        SetStartupLoading(
-            "Готовим библиотеку",
-            "Проверяем локальные данные и недавние просмотры",
-            90);
+        SetStartupLoading();
         RebuildRecent();
-        IsCacheCheckComplete = true;
-        StartupProgress = 100;
-        IsStartupLoading = false;
-        IsStartupVisible = false;
         Navigate(Page.Home);
+        IsStartupVisible = false;
+        await Task.Delay(TimeSpan.FromMilliseconds(240), _lifetimeCancellation.Token);
+        IsStartupPresented = false;
         StatusMessage = "Сессия восстановлена";
         RequestLibraryRefresh(LibrarySyncReason.SessionRestored);
     }
@@ -895,7 +930,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 if (exception is LoginRequiredException)
                 {
                     ShowAuthenticationRequired(
-                        "Сессия истекла. Войдите в аккаунт ещё раз.");
+                        "Сессия истекла. Войдите в аккаунт ещё раз");
                 }
                 else if (IsLibraryVisible)
                 {
@@ -1063,7 +1098,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         catch (LoginRequiredException)
         {
             ShowAuthenticationRequired(
-                "Сессия истекла. Войдите в аккаунт ещё раз.");
+                "Сессия истекла. Войдите в аккаунт ещё раз");
         }
         catch (Exception exception)
         {
@@ -1093,46 +1128,160 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private void ResetStartupState()
     {
         IsProfilePopupOpen = false;
+        IsStartupPresented = true;
         IsStartupVisible = true;
         IsStartupLoading = true;
         IsStartupAuthenticationRequired = false;
-        IsSettingsCheckComplete = false;
-        IsAuthenticationCheckComplete = false;
-        IsCacheCheckComplete = false;
         MirrorStatuses.Clear();
         IsMirrorCheckRunning = true;
         HasAvailableMirror = false;
         IsAutoMirrorSelection = true;
         StartupWizardStep = 0;
+        IsLoginRunning = false;
+        ClearLoginStatus();
+        ResetLoginComposition();
         MirrorSelectorLabel = "Проверка подключения";
-        MirrorStatusMessage = string.Empty;
-        StartupProgress = 0;
+        ClearMirrorStatus();
         StatusMessage = string.Empty;
     }
 
-    private void SetStartupLoading(
-        string title,
-        string message,
-        int progress)
+    private void SetStartupLoading()
     {
+        IsStartupPresented = true;
         IsStartupVisible = true;
         IsStartupLoading = true;
         IsStartupAuthenticationRequired = false;
-        StartupTitle = title;
-        StartupMessage = message;
-        StartupProgress = progress;
     }
 
-    private void ShowAuthenticationRequired(string message)
+    private void ShowAuthenticationRequired(string? statusMessage = null)
     {
         IsProfilePopupOpen = false;
+        IsStartupPresented = true;
         IsStartupVisible = true;
         IsStartupLoading = false;
         IsStartupAuthenticationRequired = true;
         StartupWizardStep = 0;
         StartupTitle = "Вход в аккаунт";
-        StartupMessage = message;
+        StartupMessage = LoginPrompt;
+        IsLoginRunning = false;
+        if (string.IsNullOrWhiteSpace(statusMessage))
+        {
+            ClearLoginStatus();
+        }
+        else
+        {
+            ShowLoginStatus(statusMessage);
+        }
+
+        ResetLoginComposition();
         Password = string.Empty;
+    }
+
+    private void ShowLoginStatus(string message)
+    {
+        CancelLoginStatusDismissal();
+        LoginStatusMessage = WithoutTrailingPeriod(message);
+        IsLoginStatusVisible = true;
+
+        var cancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            _lifetimeCancellation.Token);
+        _loginStatusCancellation = cancellation;
+        _ = HideLoginStatusAsync(cancellation);
+    }
+
+    private async Task HideLoginStatusAsync(CancellationTokenSource cancellation)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(5), cancellation.Token);
+            if (!ReferenceEquals(_loginStatusCancellation, cancellation))
+            {
+                return;
+            }
+
+            IsLoginStatusVisible = false;
+            await Task.Delay(TimeSpan.FromMilliseconds(200), cancellation.Token);
+            if (ReferenceEquals(_loginStatusCancellation, cancellation))
+            {
+                LoginStatusMessage = string.Empty;
+                _loginStatusCancellation = null;
+                cancellation.Dispose();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // A newer message or a screen reset superseded this dismissal.
+        }
+    }
+
+    private void ClearLoginStatus()
+    {
+        CancelLoginStatusDismissal();
+        IsLoginStatusVisible = false;
+        LoginStatusMessage = string.Empty;
+    }
+
+    private void CancelLoginStatusDismissal()
+    {
+        var cancellation = _loginStatusCancellation;
+        _loginStatusCancellation = null;
+        cancellation?.Cancel();
+        cancellation?.Dispose();
+    }
+
+    private static string WithoutTrailingPeriod(string message) =>
+        message.Trim().TrimEnd('.');
+
+    private void ShowMirrorStatus(string message)
+    {
+        CancelMirrorStatusDismissal();
+        MirrorStatusMessage = WithoutTrailingPeriod(message);
+        IsMirrorStatusVisible = true;
+
+        var cancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            _lifetimeCancellation.Token);
+        _mirrorStatusCancellation = cancellation;
+        _ = HideMirrorStatusAsync(cancellation);
+    }
+
+    private async Task HideMirrorStatusAsync(CancellationTokenSource cancellation)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(5), cancellation.Token);
+            if (!ReferenceEquals(_mirrorStatusCancellation, cancellation))
+            {
+                return;
+            }
+
+            IsMirrorStatusVisible = false;
+            await Task.Delay(TimeSpan.FromMilliseconds(200), cancellation.Token);
+            if (ReferenceEquals(_mirrorStatusCancellation, cancellation))
+            {
+                MirrorStatusMessage = string.Empty;
+                _mirrorStatusCancellation = null;
+                cancellation.Dispose();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // A newer message or a screen reset superseded this dismissal.
+        }
+    }
+
+    private void ClearMirrorStatus()
+    {
+        CancelMirrorStatusDismissal();
+        IsMirrorStatusVisible = false;
+        MirrorStatusMessage = string.Empty;
+    }
+
+    private void CancelMirrorStatusDismissal()
+    {
+        var cancellation = _mirrorStatusCancellation;
+        _mirrorStatusCancellation = null;
+        cancellation?.Cancel();
+        cancellation?.Dispose();
     }
 
     private async Task RefreshMirrorsAsync(CancellationToken cancellationToken)
@@ -1212,7 +1361,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                     StringComparison.OrdinalIgnoreCase);
             if (item.IsSelected != selected)
             {
-                MirrorStatuses[index] = item with { IsSelected = selected };
+                item.IsSelected = selected;
             }
         }
     }
@@ -1255,6 +1404,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         _lifetimeCancellation.Cancel();
         _librarySync.SnapshotChanged -= OnLibrarySnapshotChanged;
         _librarySync.SyncFailed -= OnLibrarySyncFailed;
+        CancelLoginStatusDismissal();
+        CancelMirrorStatusDismissal();
         _operationCancellation?.Cancel();
         _operationCancellation?.Dispose();
         _lifetimeCancellation.Dispose();

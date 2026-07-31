@@ -109,10 +109,10 @@
   <Style Selector="Button.login-primary">
     <Setter Property="MinHeight" Value="48" />
     <Setter Property="Padding" Value="16,0" />
-    <Setter Property="Background" Value="White" />
-    <Setter Property="BorderBrush" Value="#24000000" />
+    <Setter Property="Background" Value="{DynamicResource Brush.Action.Contrast}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Action.Contrast.Border}" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="Foreground" Value="Black" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnContrast}" />
     <Setter Property="HorizontalContentAlignment" Value="Center" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
     <Setter Property="Template">
@@ -132,10 +132,10 @@
     </Setter>
   </Style>
   <Style Selector="Button.login-primary:pointerover">
-    <Setter Property="Background" Value="#FFF0F0F0" />
+    <Setter Property="Background" Value="{DynamicResource Brush.Action.Contrast.Hover}" />
   </Style>
   <Style Selector="Button.login-primary:pressed">
-    <Setter Property="Background" Value="#FFE4E4E4" />
+    <Setter Property="Background" Value="{DynamicResource Brush.Action.Contrast.Pressed}" />
   </Style>
   <Style Selector="Button.login-primary:disabled">
     <Setter Property="Opacity" Value="0.42" />
@@ -357,63 +357,13 @@
     <Setter Property="Foreground" Value="{StaticResource Brush.Brand}" />
   </Style>
 
-  <Style Selector="ToggleButton.remember">
-    <Setter Property="MinWidth" Value="112" />
-    <Setter Property="MinHeight" Value="44" />
-    <Setter Property="Padding" Value="14,0" />
-    <Setter Property="Background" Value="{DynamicResource Brush.Surface.Secondary}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Subtle}" />
-    <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="{StaticResource Radius.Control}" />
-    <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
-    <Setter Property="FontWeight" Value="SemiBold" />
-    <Setter Property="Cursor" Value="Hand" />
-    <Setter Property="HorizontalContentAlignment" Value="Center" />
-    <Setter Property="VerticalContentAlignment" Value="Center" />
-    <Setter Property="Transitions">
-      <Transitions>
-        <BrushTransition Property="Background" Duration="0:0:0.16" />
-        <BrushTransition Property="BorderBrush" Duration="0:0:0.16" />
-        <BrushTransition Property="Foreground" Duration="0:0:0.16" />
-      </Transitions>
-    </Setter>
-    <Setter Property="Template">
-      <ControlTemplate>
-        <ContentPresenter
-            Padding="{TemplateBinding Padding}"
-            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-            Background="{TemplateBinding Background}"
-            BorderBrush="{TemplateBinding BorderBrush}"
-            BorderThickness="{TemplateBinding BorderThickness}"
-            Content="{TemplateBinding Content}"
-            ContentTemplate="{TemplateBinding ContentTemplate}"
-            CornerRadius="{TemplateBinding CornerRadius}"
-            Foreground="{TemplateBinding Foreground}" />
-      </ControlTemplate>
-    </Setter>
-  </Style>
-  <Style Selector="ToggleButton.remember:pointerover">
-    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Strong}" />
-    <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
-  </Style>
-  <Style Selector="ToggleButton.remember:checked">
-    <Setter Property="Background" Value="{StaticResource Brush.Brand.Soft}" />
-    <Setter Property="BorderBrush" Value="{StaticResource Brush.Brand}" />
-    <Setter Property="Foreground" Value="{StaticResource Brush.Brand}" />
-  </Style>
-  <Style Selector="ToggleButton.remember:checked:pointerover">
-    <Setter Property="Background" Value="{StaticResource Brush.Brand.Soft}" />
-    <Setter Property="BorderBrush" Value="{StaticResource Brush.Brand}" />
-    <Setter Property="Foreground" Value="{StaticResource Brush.Brand}" />
-  </Style>
-
   <Style Selector="Button.mirror-anchor">
     <Setter Property="Padding" Value="12,8" />
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
     <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="RenderTransform" Value="scale(1)" />
     <Setter Property="Transitions">
       <Transitions>
         <BrushTransition Property="Foreground" Duration="0:0:0.18" />
@@ -428,15 +378,29 @@
             Background="Transparent"
             Content="{TemplateBinding Content}"
             ContentTemplate="{TemplateBinding ContentTemplate}"
-            Foreground="{TemplateBinding Foreground}" />
+            Foreground="{TemplateBinding Foreground}"
+            RenderTransform="scale(1)" />
       </ControlTemplate>
     </Setter>
   </Style>
   <Style Selector="Button.mirror-anchor:pointerover">
     <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
   </Style>
+  <Style Selector="Button.mirror-anchor:pressed">
+    <Setter Property="RenderTransform" Value="scale(1)" />
+  </Style>
+  <Style Selector="Button.mirror-anchor:pressed /template/ ContentPresenter">
+    <Setter Property="RenderTransform" Value="scale(1)" />
+  </Style>
   <Style Selector="Button.mirror-anchor:disabled">
     <Setter Property="Opacity" Value="0.72" />
+  </Style>
+  <Style Selector="Border.mirror-list">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface.Primary}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="16" />
+    <Setter Property="ClipToBounds" Value="True" />
   </Style>
   <Style Selector="Button.mirror-option">
     <Setter Property="Height" Value="46" />
@@ -446,41 +410,60 @@
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderBrush" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="0" />
     <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
-    <Setter Property="Transitions">
-      <Transitions>
-        <BrushTransition Property="Background" Duration="0:0:0.22">
-          <BrushTransition.Easing>
-            <CubicEaseOut />
-          </BrushTransition.Easing>
-        </BrushTransition>
-      </Transitions>
-    </Setter>
+    <Setter Property="RenderTransform" Value="scale(1)" />
     <Setter Property="Template">
       <ControlTemplate>
-        <ContentPresenter
-            Padding="{TemplateBinding Padding}"
-            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-            VerticalContentAlignment="Center"
+        <Grid
             Background="{TemplateBinding Background}"
-            BorderBrush="{TemplateBinding BorderBrush}"
-            BorderThickness="{TemplateBinding BorderThickness}"
-            Content="{TemplateBinding Content}"
-            ContentTemplate="{TemplateBinding ContentTemplate}"
-            CornerRadius="{TemplateBinding CornerRadius}"
-            Foreground="{TemplateBinding Foreground}" />
+            RenderTransform="scale(1)">
+          <Border
+              Classes="mirror-option-highlight"
+              Background="{DynamicResource Brush.Surface.Secondary}"
+              IsHitTestVisible="False" />
+          <ContentPresenter
+              Padding="{TemplateBinding Padding}"
+              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+              VerticalContentAlignment="Center"
+              Background="Transparent"
+              Content="{TemplateBinding Content}"
+              ContentTemplate="{TemplateBinding ContentTemplate}"
+              Foreground="{TemplateBinding Foreground}"
+              RenderTransform="scale(1)" />
+        </Grid>
       </ControlTemplate>
     </Setter>
   </Style>
-  <Style Selector="Button.mirror-option:pointerover">
-    <Setter Property="Background" Value="{DynamicResource Brush.Surface.Secondary}" />
+  <Style Selector="Border.mirror-option-highlight">
+    <Setter Property="Opacity" Value="0" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.16">
+          <DoubleTransition.Easing>
+            <CubicEaseOut />
+          </DoubleTransition.Easing>
+        </DoubleTransition>
+      </Transitions>
+    </Setter>
   </Style>
-  <Style Selector="Button.mirror-option.active">
-    <Setter Property="Background" Value="{DynamicResource Brush.Surface.Secondary}" />
-    <Setter Property="BorderBrush" Value="Transparent" />
+  <Style Selector="Button.mirror-option:pointerover /template/ Border.mirror-option-highlight">
+    <Setter Property="Opacity" Value="1" />
   </Style>
-  <Style Selector="Button.mirror-option.active:pointerover">
-    <Setter Property="Background" Value="{DynamicResource Brush.Surface.Secondary}" />
+  <Style Selector="Button.mirror-option:pressed /template/ Border.mirror-option-highlight">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+  <Style Selector="Button.mirror-option:pressed">
+    <Setter Property="RenderTransform" Value="scale(1)" />
+  </Style>
+  <Style Selector="Button.mirror-option:pressed /template/ Grid">
+    <Setter Property="RenderTransform" Value="scale(1)" />
+  </Style>
+  <Style Selector="Button.mirror-option:pressed /template/ ContentPresenter">
+    <Setter Property="RenderTransform" Value="scale(1)" />
+  </Style>
+  <Style Selector="Button.mirror-option.active /template/ Border.mirror-option-highlight">
+    <Setter Property="Opacity" Value="1" />
   </Style>
   <Style Selector="Button.mirror-option.unavailable">
     <Setter Property="Opacity" Value="0.48" />
@@ -488,7 +471,7 @@
   <Style Selector="TextBlock.mirror-latency">
     <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
     <Setter Property="FontSize" Value="12" />
-    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="FontWeight" Value="Normal" />
   </Style>
   <Style Selector="TextBlock.mirror-latency.unavailable">
     <Setter Property="Foreground" Value="{StaticResource Brush.Danger}" />
@@ -504,7 +487,104 @@
   <Style Selector="TextBox.login-input">
     <Setter Property="MinHeight" Value="50" />
     <Setter Property="FontSize" Value="15" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+    <Setter Property="CaretBrush" Value="{DynamicResource Brush.Text.Primary}" />
+    <Setter Property="BorderThickness" Value="0" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="FocusAdorner" Value="{x:Null}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <DataValidationErrors>
+          <Border
+              Background="{TemplateBinding Background}"
+              BorderBrush="{TemplateBinding BorderBrush}"
+              BorderThickness="{TemplateBinding BorderThickness}"
+              CornerRadius="{TemplateBinding CornerRadius}"
+              MinWidth="{TemplateBinding MinWidth}"
+              MinHeight="{TemplateBinding MinHeight}">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+              <ContentPresenter
+                  Grid.Column="0"
+                  VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                  Content="{TemplateBinding InnerLeftContent}" />
+              <DockPanel
+                  x:Name="PART_InnerDockPanel"
+                  Grid.Column="1"
+                  Margin="{TemplateBinding Padding}">
+                <ScrollViewer
+                    x:Name="PART_ScrollViewer"
+                    HorizontalScrollBarVisibility="{TemplateBinding (ScrollViewer.HorizontalScrollBarVisibility)}"
+                    VerticalScrollBarVisibility="{TemplateBinding (ScrollViewer.VerticalScrollBarVisibility)}">
+                  <Panel>
+                    <TextBlock
+                        x:Name="PART_Placeholder"
+                        Classes="login-placeholder"
+                        HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                        VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                        Foreground="{TemplateBinding PlaceholderForeground}"
+                        Text="{TemplateBinding PlaceholderText}"
+                        TextAlignment="{TemplateBinding TextAlignment}"
+                        TextWrapping="{TemplateBinding TextWrapping}">
+                      <TextBlock.IsVisible>
+                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                          <Binding
+                              ElementName="PART_TextPresenter"
+                              Path="PreeditText"
+                              Converter="{x:Static StringConverters.IsNullOrEmpty}" />
+                          <Binding
+                              RelativeSource="{RelativeSource TemplatedParent}"
+                              Path="Text"
+                              Converter="{x:Static StringConverters.IsNullOrEmpty}" />
+                        </MultiBinding>
+                      </TextBlock.IsVisible>
+                    </TextBlock>
+                    <TextPresenter
+                        x:Name="PART_TextPresenter"
+                        HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                        VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                        CaretBlinkInterval="{TemplateBinding CaretBlinkInterval}"
+                        CaretBrush="{TemplateBinding CaretBrush}"
+                        CaretIndex="{TemplateBinding CaretIndex}"
+                        LetterSpacing="{TemplateBinding LetterSpacing}"
+                        LineHeight="{TemplateBinding LineHeight}"
+                        PasswordChar="{TemplateBinding PasswordChar}"
+                        RevealPassword="{TemplateBinding RevealPassword}"
+                        SelectionBrush="{TemplateBinding SelectionBrush}"
+                        SelectionEnd="{TemplateBinding SelectionEnd}"
+                        SelectionForegroundBrush="{TemplateBinding SelectionForegroundBrush}"
+                        SelectionStart="{TemplateBinding SelectionStart}"
+                        Text="{TemplateBinding Text, Mode=TwoWay}"
+                        TextAlignment="{TemplateBinding TextAlignment}"
+                        TextWrapping="{TemplateBinding TextWrapping}" />
+                  </Panel>
+                </ScrollViewer>
+              </DockPanel>
+              <ContentPresenter
+                  Grid.Column="2"
+                  VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                  Content="{TemplateBinding InnerRightContent}" />
+            </Grid>
+          </Border>
+        </DataValidationErrors>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="TextBox.login-input:pointerover, TextBox.login-input:focus">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface.Secondary}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Subtle}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+  </Style>
+  <Style Selector="TextBlock.login-placeholder">
+    <Setter Property="Opacity" Value="{DynamicResource TextControlPlaceholderOpacity}" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.16" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="TextBox.login-input:focus /template/ TextBlock.login-placeholder">
+    <Setter Property="Opacity" Value="0" />
   </Style>
   <Style Selector="TextBox.mirror-custom-input">
     <Setter Property="Height" Value="46" />
@@ -515,26 +595,153 @@
   <Style Selector="Button.mirror-use">
     <Setter Property="Height" Value="46" />
     <Setter Property="Padding" Value="15,0" />
-    <Setter Property="Background" Value="{DynamicResource Brush.Surface.Secondary}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Subtle}" />
+    <Setter Property="Background" Value="{DynamicResource Brush.Action.Contrast}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Action.Contrast.Border}" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnContrast}" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="RenderTransform" Value="scale(1)" />
     <Setter Property="Transitions">
       <Transitions>
         <BrushTransition Property="Background" Duration="0:0:0.16" />
         <BrushTransition Property="BorderBrush" Duration="0:0:0.16" />
       </Transitions>
     </Setter>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <ContentPresenter
+            Padding="{TemplateBinding Padding}"
+            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+            Background="{TemplateBinding Background}"
+            BorderBrush="{TemplateBinding BorderBrush}"
+            BorderThickness="{TemplateBinding BorderThickness}"
+            Content="{TemplateBinding Content}"
+            ContentTemplate="{TemplateBinding ContentTemplate}"
+            CornerRadius="{TemplateBinding CornerRadius}"
+            Foreground="{TemplateBinding Foreground}"
+            RenderTransform="scale(1)" />
+      </ControlTemplate>
+    </Setter>
   </Style>
   <Style Selector="Button.mirror-use:pointerover">
-    <Setter Property="Background" Value="{DynamicResource Brush.Surface.Elevated}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Strong}" />
+    <Setter Property="Background" Value="{DynamicResource Brush.Action.Contrast.Hover}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Action.Contrast.Border}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnContrast}" />
+  </Style>
+  <Style Selector="Button.mirror-use:pressed">
+    <Setter Property="Background" Value="{DynamicResource Brush.Action.Contrast.Pressed}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnContrast}" />
+    <Setter Property="RenderTransform" Value="scale(1)" />
+  </Style>
+  <Style Selector="Button.mirror-use:pressed /template/ ContentPresenter">
+    <Setter Property="RenderTransform" Value="scale(1)" />
+  </Style>
+  <Style Selector="Button.mirror-use:disabled">
+    <Setter Property="Background" Value="{DynamicResource Brush.Action.Contrast}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnContrast}" />
+    <Setter Property="Opacity" Value="0.42" />
+  </Style>
+  <Style Selector="Button.mirror-use.running:disabled">
+    <Setter Property="Opacity" Value="1" />
   </Style>
   <Style Selector="TextBlock.login-field-icon">
     <Setter Property="Margin" Value="15,0,11,0" />
     <Setter Property="VerticalAlignment" Value="Center" />
-    <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextControlPlaceholderForeground}" />
     <Setter Property="FontSize" Value="20" />
+    <Setter Property="Opacity" Value="{DynamicResource TextControlPlaceholderOpacity}" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Foreground" Duration="0:0:0.18" />
+        <DoubleTransition Property="Opacity" Duration="0:0:0.18" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="TextBox.login-input:focus TextBlock.login-field-icon">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+  <Style Selector="TextBox.login-input:not(:empty) TextBlock.login-field-icon">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+  <Style Selector="TextBlock.login-status, TextBlock.mirror-status">
+    <Setter Property="Opacity" Value="0" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="TextBlock.login-status.visible, TextBlock.mirror-status.visible">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+
+  <Style Selector="Image.login-rezka-logo">
+    <Setter Property="RenderTransform" Value="translateX(0px)" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.28">
+          <TransformOperationsTransition.Easing>
+            <CubicEaseOut />
+          </TransformOperationsTransition.Easing>
+        </TransformOperationsTransition>
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Image.login-rezka-logo.shifted">
+    <Setter Property="RenderTransform" Value="translateX(92px)" />
+  </Style>
+  <Style Selector="Image.login-fox-logo, StackPanel.login-connection-dots">
+    <Setter Property="Opacity" Value="0" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Image.login-fox-logo.visible, StackPanel.login-connection-dots.visible">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+  <Style Selector="Image.login-fox-logo">
+    <Setter Property="RenderTransform" Value="translateX(-92px)" />
+  </Style>
+  <Style Selector="StackPanel.login-button-idle, StackPanel.login-button-busy">
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.18" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="StackPanel.login-button-idle">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+  <Style Selector="StackPanel.login-button-busy">
+    <Setter Property="Opacity" Value="0" />
+  </Style>
+  <Style Selector="Grid.login-button-content.running StackPanel.login-button-idle">
+    <Setter Property="Opacity" Value="0" />
+  </Style>
+  <Style Selector="Grid.login-button-content.running StackPanel.login-button-busy">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+  <Style Selector="Button.login-primary.running:disabled">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+  <Style Selector="TextBlock.login-spinner">
+    <Setter Property="RenderTransformOrigin" Value="50%,50%" />
+    <Style.Animations>
+      <Animation Duration="0:0:0.8" IterationCount="Infinite">
+        <KeyFrame Cue="0%">
+          <Setter Property="RotateTransform.Angle" Value="0" />
+        </KeyFrame>
+        <KeyFrame Cue="100%">
+          <Setter Property="RotateTransform.Angle" Value="360" />
+        </KeyFrame>
+      </Animation>
+    </Style.Animations>
   </Style>
 
   <Style Selector="Border.card">
@@ -577,14 +784,34 @@
     <Setter Property="Opacity" Value="1" />
     <Setter Property="RenderTransform" Value="translateY(0px) scale(1)" />
   </Style>
-  <Style Selector="Border.status-step">
-    <Setter Property="Background" Value="{DynamicResource Brush.Surface.Secondary}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Subtle}" />
-    <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="{StaticResource Radius.Control}" />
+  <Style Selector="Grid.startup-overlay">
+    <Setter Property="Opacity" Value="0" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.24">
+          <DoubleTransition.Easing>
+            <CubicEaseOut />
+          </DoubleTransition.Easing>
+        </DoubleTransition>
+      </Transitions>
+    </Setter>
   </Style>
-  <Style Selector="Border.status-step.complete">
-    <Setter Property="Background" Value="#1455C98A" />
-    <Setter Property="BorderBrush" Value="#5555C98A" />
+  <Style Selector="Grid.startup-overlay.visible">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+  <Style Selector="Grid.startup-loading-content, StackPanel.startup-wizard-content, Carousel.startup-wizard-content">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+  <Style Selector="Grid.startup-loading-content, StackPanel.startup-wizard-content.visible, Carousel.startup-wizard-content.visible">
+    <Style.Animations>
+      <Animation Duration="0:0:0.24">
+        <KeyFrame Cue="0%">
+          <Setter Property="Opacity" Value="0" />
+        </KeyFrame>
+        <KeyFrame Cue="100%">
+          <Setter Property="Opacity" Value="1" />
+        </KeyFrame>
+      </Animation>
+    </Style.Animations>
   </Style>
 </Styles>

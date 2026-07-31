@@ -1,4 +1,5 @@
 using Avalonia.Media.Imaging;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
 namespace Rezui.Models;
@@ -22,14 +23,37 @@ public sealed record QualityItem(
 
 public sealed record SubtitleItem(string Title, Uri? Url);
 
-public sealed record MirrorStatusItem(
-    string Origin,
-    string DisplayName,
-    long? LatencyMilliseconds,
-    bool IsAvailable,
-    bool IsCustom,
-    bool IsSelected)
+public sealed partial class MirrorStatusItem : ObservableObject
 {
+    public MirrorStatusItem(
+        string origin,
+        string displayName,
+        long? latencyMilliseconds,
+        bool isAvailable,
+        bool isCustom,
+        bool isSelected)
+    {
+        Origin = origin;
+        DisplayName = displayName;
+        LatencyMilliseconds = latencyMilliseconds;
+        IsAvailable = isAvailable;
+        IsCustom = isCustom;
+        _isSelected = isSelected;
+    }
+
+    public string Origin { get; }
+
+    public string DisplayName { get; }
+
+    public long? LatencyMilliseconds { get; }
+
+    public bool IsAvailable { get; }
+
+    public bool IsCustom { get; }
+
+    [ObservableProperty]
+    private bool _isSelected;
+
     public string StatusText => IsAvailable
         ? $"{LatencyMilliseconds} мс"
         : "Недоступно";

@@ -85,22 +85,18 @@ public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
     public async Task<AuthenticationState> LoginAsync(
         string login,
         string password,
-        bool rememberSession,
         CancellationToken cancellationToken = default)
     {
         EnsureConfigured();
         var state = await _client!.LoginAsync(
             login.Trim(),
             password,
-            rememberMe: rememberSession,
+            rememberMe: true,
             cancellationToken);
 
-        Settings.RememberSession = rememberSession;
+        Settings.RememberSession = true;
         Settings.AuthenticationCookies.Clear();
-        if (rememberSession)
-        {
-            CopyAuthenticationCookies(_client.Options.Cookies, Settings.AuthenticationCookies);
-        }
+        CopyAuthenticationCookies(_client.Options.Cookies, Settings.AuthenticationCookies);
 
         await _settingsService.SaveAsync(Settings, cancellationToken);
         return state;
@@ -199,7 +195,7 @@ public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
             uri.Scheme is not ("http" or "https") ||
             string.IsNullOrWhiteSpace(uri.Host))
         {
-            throw new ArgumentException("Укажите корректный HTTP(S)-адрес зеркала.", nameof(origin));
+            throw new ArgumentException("Укажите корректный HTTP(S)-адрес зеркала", nameof(origin));
         }
 
         return new Uri(uri.GetLeftPart(UriPartial.Authority));
@@ -255,7 +251,7 @@ public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
     {
         if (_client is null)
         {
-            throw new InvalidOperationException("Сначала укажите адрес доступного зеркала.");
+            throw new InvalidOperationException("Сначала укажите адрес доступного зеркала");
         }
     }
 

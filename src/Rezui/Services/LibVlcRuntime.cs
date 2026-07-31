@@ -41,7 +41,7 @@ public static class LibVlcRuntime
         {
             return new LibVlcRuntimeStatus(
                 true,
-                "Native LibVLC поставляется платформенным пакетом.",
+                "Native LibVLC поставляется платформенным пакетом",
                 null,
                 null);
         }
@@ -52,7 +52,7 @@ public static class LibVlcRuntime
         {
             return new LibVlcRuntimeStatus(
                 false,
-                "Не найден libvlc.so.5.",
+                "Не найден libvlc.so.5",
                 null,
                 plugins);
         }
@@ -61,14 +61,14 @@ public static class LibVlcRuntime
         {
             return new LibVlcRuntimeStatus(
                 false,
-                "LibVLC найден, но не найдены VLC-плагины.",
+                "LibVLC найден, но не найдены VLC-плагины",
                 library,
                 null);
         }
 
         return new LibVlcRuntimeStatus(
             true,
-            "LibVLC и плагины найдены.",
+            "LibVLC и плагины найдены",
             library,
             plugins);
     }
@@ -264,13 +264,13 @@ public static class LibVlcRuntime
         {
             return
                 "Не найден движок LibVLC. Используйте сборку Rezui со встроенным " +
-                "runtime или установите пакет libvlc.";
+                "runtime или установите пакет libvlc";
         }
 
         return
             $"LibVLC найден ({status.LibraryPath}), но каталог VLC-плагинов пуст. " +
             "Для Debian/Ubuntu нужен пакет vlc-plugin-base; " +
-            "release-сборка Rezui должна содержать плагины внутри приложения.";
+            "release-сборка Rezui должна содержать плагины внутри приложения";
     }
 
     private const int RtldNow = 2;

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
+using HdRezka;
 
 namespace Rezui.Services;
 
@@ -15,11 +16,18 @@ public interface IMirrorDiscoveryService
     Task<IReadOnlyList<MirrorProbeResult>> ProbeAsync(
         IEnumerable<string> origins,
         CancellationToken cancellationToken = default);
+
+    Task<bool> IsRezkaMirrorAsync(
+        string origin,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed class MirrorDiscoveryService : IMirrorDiscoveryService, IDisposable
 {
     private static readonly TimeSpan ProbeTimeout = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan ValidationTimeout = TimeSpan.FromSeconds(10);
+    private const string ValidationLogin = "test@test.com";
+    private const string ValidationPassword = "Testpass123!";
     private readonly HttpClient _httpClient;
     private readonly bool _ownsHttpClient;
 
@@ -44,6 +52,42 @@ public sealed class MirrorDiscoveryService : IMirrorDiscoveryService, IDisposabl
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Select(origin => ProbeOneAsync(origin, cancellationToken));
         return await Task.WhenAll(probes);
+    }
+
+    public async Task<bool> IsRezkaMirrorAsync(
+        string origin,
+        CancellationToken cancellationToken = default)
+    {
+        Uri normalized;
+        try
+        {
+            normalized = RezkaClientService.NormalizeOrigin(origin);
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(ValidationTimeout);
+        using var validationClient = new Client(normalized.AbsoluteUri.TrimEnd('/'));
+        try
+        {
+            var authentication = await validationClient.LoginAsync(
+                ValidationLogin,
+                ValidationPassword,
+                rememberMe: false,
+                timeout.Token);
+            return authentication.IsAuthenticated;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
     }
 
     public void Dispose()
