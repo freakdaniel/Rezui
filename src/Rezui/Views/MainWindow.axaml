@@ -99,6 +99,71 @@
     <DataTemplate DataType="vlcShared:MediaPlayer">
       <vlc:VideoView MediaPlayer="{Binding}" />
     </DataTemplate>
+
+    <DataTemplate DataType="models:CategoryMenuDefinition">
+      <Grid Margin="18" RowDefinitions="Auto,Auto" RowSpacing="14">
+        <Border Padding="12" Classes="mega-menu-header">
+          <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+            <StackPanel VerticalAlignment="Center" Spacing="2">
+              <TextBlock
+                  FontSize="17"
+                  FontWeight="SemiBold"
+                  Text="{Binding Title}" />
+              <TextBlock
+                  Classes="muted"
+                  FontSize="11"
+                  Text="Жанры и направления" />
+            </StackPanel>
+            <Button
+                Grid.Column="1"
+                Classes="mega-menu-action"
+                Command="{Binding #RootWindow.((vm:MainWindowViewModel)DataContext).BrowseCategoryCommand}"
+                CommandParameter="{Binding NewDescriptor}"
+                Content="Новинки" />
+            <Button
+                Grid.Column="2"
+                Classes="mega-menu-action contrast"
+                Command="{Binding #RootWindow.((vm:MainWindowViewModel)DataContext).BrowseCategoryCommand}"
+                CommandParameter="{Binding AllDescriptor}">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Text="{Binding AllLabel}"
+                    TextAlignment="Center" />
+                <TextBlock
+                    Classes="symbol mega-menu-action-arrow"
+                    FontSize="16"
+                    Text="arrow_forward" />
+              </StackPanel>
+            </Button>
+          </Grid>
+        </Border>
+
+        <ItemsControl Grid.Row="1" ItemsSource="{Binding Columns}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <UniformGrid Columns="4" ColumnSpacing="8" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="models:CategoryMenuColumn">
+              <ItemsControl ItemsSource="{Binding Items}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="models:CategoryMenuItem">
+                    <Button
+                        Classes="mega-menu-item"
+                        Command="{Binding #RootWindow.((vm:MainWindowViewModel)DataContext).BrowseCategoryCommand}"
+                        CommandParameter="{Binding Descriptor}"
+                        Content="{Binding Title}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </Grid>
+    </DataTemplate>
   </Window.DataTemplates>
 
   <Grid>
@@ -106,183 +171,138 @@
     <Grid
         IsVisible="{Binding IsShellVisible}">
       <Border
-          x:Name="TopIsland"
           ZIndex="10"
+          Width="{Binding Bounds.Width, ElementName=TopIsland}"
+          Height="{Binding Bounds.Height, ElementName=TopIsland}"
+          Margin="28,22,28,0"
+          HorizontalAlignment="Center"
+          VerticalAlignment="Top"
+          IsHitTestVisible="False"
+          IsVisible="{Binding !IsPlayerVisible}"
+          Classes="top-island-shadow" />
+      <Border
+          x:Name="TopIsland"
+          ZIndex="20"
           MaxWidth="1120"
           Margin="28,22,28,0"
-          Padding="9"
+          Padding="7"
           HorizontalAlignment="Center"
           VerticalAlignment="Top"
           IsVisible="{Binding !IsPlayerVisible}"
-          Classes="island">
-        <Grid ColumnDefinitions="Auto,18,Auto,Auto,Auto,Auto,Auto,18,Auto">
-          <StackPanel Orientation="Horizontal" Spacing="10">
-            <Border
-                Width="38"
-                Height="38"
-                Background="{StaticResource Brush.Brand}"
-                CornerRadius="12">
-              <TextBlock
-                  HorizontalAlignment="Center"
-                  VerticalAlignment="Center"
-                  Foreground="White"
-                  FontSize="19"
-                  FontWeight="Bold"
-                  Text="R" />
-            </Border>
-            <StackPanel VerticalAlignment="Center">
-              <TextBlock FontSize="16" FontWeight="Bold" Text="Rezui" />
-              <TextBlock Classes="muted" FontSize="9" Text="HDREZKA CLIENT" />
-            </StackPanel>
-          </StackPanel>
+          Classes="island top-island">
+        <Grid ColumnDefinitions="Auto,12,Auto,Auto,Auto,Auto,Auto,12,Auto">
+          <Image
+              Width="34"
+              Height="34"
+              RenderOptions.BitmapInterpolationMode="HighQuality"
+              Source="avares://Rezui/Assets/rezui.png"
+              Stretch="Uniform" />
 
           <Button
               Grid.Column="2"
               Classes="nav"
               Classes.active="{Binding IsHomeVisible}"
               Command="{Binding ShowHomeCommand}">
-            <StackPanel Orientation="Horizontal" Spacing="8">
+            <StackPanel Orientation="Horizontal" Spacing="5">
               <TextBlock
                   Classes="symbol"
                   Classes.filled="{Binding IsHomeVisible}"
+                  FontSize="16"
                   Text="home" />
               <TextBlock VerticalAlignment="Center" Text="Главная" />
             </StackPanel>
           </Button>
           <Button
+              x:Name="FilmsNavButton"
               Grid.Column="3"
               Classes="nav category"
-              Classes.active="{Binding IsFilmsCategory}">
-            <Button.Flyout>
-              <MenuFlyout
-                  Placement="BottomEdgeAlignedLeft"
-                  FlyoutPresenterClasses="category-flyout">
-                <MenuItem
-                    Header="Все фильмы"
-                    Command="{Binding #RootWindow.((vm:MainWindowViewModel)DataContext).BrowseCategoryCommand}"
-                    CommandParameter="films|фильмы" />
-                <MenuItem
-                    Header="Новинки"
-                    Command="{Binding #RootWindow.((vm:MainWindowViewModel)DataContext).BrowseCategoryCommand}"
-                    CommandParameter="films|новинки фильмы" />
-                <MenuItem
-                    Header="Комедии"
-                    Command="{Binding #RootWindow.((vm:MainWindowViewModel)DataContext).BrowseCategoryCommand}"
-                    CommandParameter="films|комедии" />
-                <MenuItem
-                    Header="Фантастика"
-                    Command="{Binding #RootWindow.((vm:MainWindowViewModel)DataContext).BrowseCategoryCommand}"
-                    CommandParameter="films|фантастика" />
-              </MenuFlyout>
-            </Button.Flyout>
-            <StackPanel Orientation="Horizontal" Spacing="4">
+              Classes.active="{Binding IsFilmsCategory}"
+              Classes.menu-open="{Binding IsFilmsMenuOpen}"
+              Command="{Binding ToggleCategoryMenuCommand}"
+              CommandParameter="{Binding FilmsMenu}">
+            <StackPanel Orientation="Horizontal" Spacing="5">
+              <TextBlock
+                  Classes="symbol"
+                  Classes.filled="{Binding IsFilmsCategory}"
+                  FontSize="16"
+                  Text="movie" />
               <TextBlock VerticalAlignment="Center" Text="Фильмы" />
-              <TextBlock Classes="symbol" FontSize="18" Text="expand_more" />
+              <TextBlock Classes="symbol chevron" FontSize="16" Text="expand_more" />
             </StackPanel>
           </Button>
           <Button
+              x:Name="SeriesNavButton"
               Grid.Column="4"
               Classes="nav category"
-              Classes.active="{Binding IsSeriesCategory}">
-            <Button.Flyout>
-              <MenuFlyout
-                  Placement="BottomEdgeAlignedLeft"
-                  FlyoutPresenterClasses="category-flyout">
-                <MenuItem
-                    Header="Все сериалы"
-                    Command="{Binding #RootWindow.((vm:MainWindowViewModel)DataContext).BrowseCategoryCommand}"
-                    CommandParameter="series|сериалы" />
-                <MenuItem
-                    Header="Новинки"
-                    Command="{Binding #RootWindow.((vm:MainWindowViewModel)DataContext).BrowseCategoryCommand}"
-                    CommandParameter="series|новинки сериалы" />
-                <MenuItem
-                    Header="Детективы"
-                    Command="{Binding #RootWindow.((vm:MainWindowViewModel)DataContext).BrowseCategoryCommand}"
-                    CommandParameter="series|детективные сериалы" />
-                <MenuItem
-                    Header="Драмы"
-                    Command="{Binding #RootWindow.((vm:MainWindowViewModel)DataContext).BrowseCategoryCommand}"
-                    CommandParameter="series|драмы сериалы" />
-              </MenuFlyout>
-            </Button.Flyout>
-            <StackPanel Orientation="Horizontal" Spacing="4">
+              Classes.active="{Binding IsSeriesCategory}"
+              Classes.menu-open="{Binding IsSeriesMenuOpen}"
+              Command="{Binding ToggleCategoryMenuCommand}"
+              CommandParameter="{Binding SeriesMenu}">
+            <StackPanel Orientation="Horizontal" Spacing="5">
+              <TextBlock
+                  Classes="symbol"
+                  Classes.filled="{Binding IsSeriesCategory}"
+                  FontSize="16"
+                  Text="tv" />
               <TextBlock VerticalAlignment="Center" Text="Сериалы" />
-              <TextBlock Classes="symbol" FontSize="18" Text="expand_more" />
+              <TextBlock Classes="symbol chevron" FontSize="16" Text="expand_more" />
             </StackPanel>
           </Button>
           <Button
+              x:Name="CartoonsNavButton"
               Grid.Column="5"
               Classes="nav category"
-              Classes.active="{Binding IsCartoonsCategory}">
-            <Button.Flyout>
-              <MenuFlyout
-                  Placement="BottomEdgeAlignedLeft"
-                  FlyoutPresenterClasses="category-flyout">
-                <MenuItem
-                    Header="Все мультфильмы"
-                    Command="{Binding #RootWindow.((vm:MainWindowViewModel)DataContext).BrowseCategoryCommand}"
-                    CommandParameter="cartoons|мультфильмы" />
-                <MenuItem
-                    Header="Семейные"
-                    Command="{Binding #RootWindow.((vm:MainWindowViewModel)DataContext).BrowseCategoryCommand}"
-                    CommandParameter="cartoons|семейные мультфильмы" />
-                <MenuItem
-                    Header="Приключения"
-                    Command="{Binding #RootWindow.((vm:MainWindowViewModel)DataContext).BrowseCategoryCommand}"
-                    CommandParameter="cartoons|приключенческие мультфильмы" />
-              </MenuFlyout>
-            </Button.Flyout>
-            <StackPanel Orientation="Horizontal" Spacing="4">
+              Classes.active="{Binding IsCartoonsCategory}"
+              Classes.menu-open="{Binding IsCartoonsMenuOpen}"
+              Command="{Binding ToggleCategoryMenuCommand}"
+              CommandParameter="{Binding CartoonsMenu}">
+            <StackPanel Orientation="Horizontal" Spacing="5">
+              <TextBlock
+                  Classes="symbol"
+                  Classes.filled="{Binding IsCartoonsCategory}"
+                  FontSize="16"
+                  Text="palette" />
               <TextBlock VerticalAlignment="Center" Text="Мультфильмы" />
-              <TextBlock Classes="symbol" FontSize="18" Text="expand_more" />
+              <TextBlock Classes="symbol chevron" FontSize="16" Text="expand_more" />
             </StackPanel>
           </Button>
           <Button
+              x:Name="AnimeNavButton"
               Grid.Column="6"
               Classes="nav category"
-              Classes.active="{Binding IsAnimeCategory}">
-            <Button.Flyout>
-              <MenuFlyout
-                  Placement="BottomEdgeAlignedLeft"
-                  FlyoutPresenterClasses="category-flyout">
-                <MenuItem
-                    Header="Все аниме"
-                    Command="{Binding #RootWindow.((vm:MainWindowViewModel)DataContext).BrowseCategoryCommand}"
-                    CommandParameter="anime|аниме" />
-                <MenuItem
-                    Header="Сериалы"
-                    Command="{Binding #RootWindow.((vm:MainWindowViewModel)DataContext).BrowseCategoryCommand}"
-                    CommandParameter="anime|аниме сериалы" />
-                <MenuItem
-                    Header="Полнометражные"
-                    Command="{Binding #RootWindow.((vm:MainWindowViewModel)DataContext).BrowseCategoryCommand}"
-                    CommandParameter="anime|аниме фильмы" />
-              </MenuFlyout>
-            </Button.Flyout>
-            <StackPanel Orientation="Horizontal" Spacing="4">
+              Classes.active="{Binding IsAnimeCategory}"
+              Classes.menu-open="{Binding IsAnimeMenuOpen}"
+              Command="{Binding ToggleCategoryMenuCommand}"
+              CommandParameter="{Binding AnimeMenu}">
+            <StackPanel Orientation="Horizontal" Spacing="5">
+              <TextBlock
+                  Classes="symbol"
+                  Classes.filled="{Binding IsAnimeCategory}"
+                  FontSize="16"
+                  Text="auto_awesome" />
               <TextBlock VerticalAlignment="Center" Text="Аниме" />
-              <TextBlock Classes="symbol" FontSize="18" Text="expand_more" />
+              <TextBlock Classes="symbol chevron" FontSize="16" Text="expand_more" />
             </StackPanel>
           </Button>
 
           <Button
+              x:Name="ProfileAvatarButton"
               Grid.Column="8"
               Classes="profile-avatar"
               Command="{Binding ToggleProfilePopupCommand}"
               AutomationProperties.Name="Открыть меню профиля">
             <Border
-                Width="38"
-                Height="38"
-                Background="{StaticResource Brush.Brand.Soft}"
+                Width="34"
+                Height="34"
+                Background="{DynamicResource Brush.TopBar.Accent.Soft}"
                 Classes="profile-avatar-image"
-                CornerRadius="19"
+                CornerRadius="17"
                 ClipToBounds="True">
               <Grid>
                 <TextBlock
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
-                    Foreground="{StaticResource Brush.Brand}"
+                    Foreground="{DynamicResource Brush.TopBar.Accent}"
                     FontSize="12"
                     FontWeight="Bold"
                     Text="{Binding ProfileInitials}" />
@@ -294,13 +314,11 @@
       </Border>
 
       <Grid
-          x:Name="ShellPages"
           ZIndex="0"
           Background="{DynamicResource Brush.App.Background}">
         <!-- Home -->
         <ScrollViewer
-            IsVisible="{Binding IsHomeVisible}"
-            ScrollChanged="ShellScrollViewer_OnScrollChanged">
+            IsVisible="{Binding IsHomeVisible}">
           <StackPanel
               MaxWidth="1120"
               Margin="28,126,28,56"
@@ -445,8 +463,7 @@
 
         <!-- Account library -->
         <ScrollViewer
-            IsVisible="{Binding IsLibraryVisible}"
-            ScrollChanged="ShellScrollViewer_OnScrollChanged">
+            IsVisible="{Binding IsLibraryVisible}">
           <StackPanel
               MaxWidth="1120"
               Margin="28,126,28,56"
@@ -527,8 +544,7 @@
 
         <!-- Settings -->
         <ScrollViewer
-            IsVisible="{Binding IsSettingsVisible}"
-            ScrollChanged="ShellScrollViewer_OnScrollChanged">
+            IsVisible="{Binding IsSettingsVisible}">
           <StackPanel
               MaxWidth="920"
               Margin="28,126,28,56"
@@ -623,8 +639,7 @@
 
         <!-- Media details -->
         <ScrollViewer
-            IsVisible="{Binding IsDetailsVisible}"
-            ScrollChanged="ShellScrollViewer_OnScrollChanged">
+            IsVisible="{Binding IsDetailsVisible}">
           <Grid
               MaxWidth="1120"
               Margin="28,126,28,56"
@@ -823,8 +838,7 @@
         </Grid>
       </Grid>
 
-      <!-- The source is taller than the visible mask so Gaussian blur never
-           samples an empty edge. The fade ends before the initial page content. -->
+      <!-- Theme-aware tint keeps the top bar legible without blurring the page. -->
       <Grid
           ZIndex="5"
           Height="118"
@@ -832,24 +846,6 @@
           ClipToBounds="True"
           IsHitTestVisible="False"
           IsVisible="{Binding !IsPlayerVisible}">
-        <Image
-            x:Name="TopMaskImage"
-            Height="166"
-            HorizontalAlignment="Left"
-            VerticalAlignment="Top"
-            Stretch="None">
-          <Image.Effect>
-            <BlurEffect Radius="20" />
-          </Image.Effect>
-          <Image.OpacityMask>
-            <LinearGradientBrush StartPoint="50%,0%" EndPoint="50%,100%">
-              <GradientStop Color="Black" Offset="0" />
-              <GradientStop Color="Black" Offset=".28" />
-              <GradientStop Color="Transparent" Offset=".62" />
-              <GradientStop Color="Transparent" Offset="1" />
-            </LinearGradientBrush>
-          </Image.OpacityMask>
-        </Image>
         <Border Background="{DynamicResource Brush.TopMask.Tint}">
           <Border.OpacityMask>
             <LinearGradientBrush StartPoint="50%,0%" EndPoint="50%,100%">
@@ -862,9 +858,39 @@
         </Border>
       </Grid>
 
+      <!-- Large in-app category popup, positioned independently of its trigger. -->
+      <Grid
+          ZIndex="15"
+          ClipToBounds="False"
+          IsHitTestVisible="{Binding IsCategoryMenuOpen}"
+          IsVisible="{Binding !IsPlayerVisible}">
+        <Button
+            Classes="popup-dismiss"
+            Command="{Binding CloseCategoryMenuCommand}"
+            AutomationProperties.Name="Закрыть меню категорий" />
+        <Grid ColumnDefinitions="24,*,24" ClipToBounds="False">
+          <Border
+              x:Name="CategoryMenuPopup"
+              Grid.Column="1"
+              ZIndex="1"
+              MaxWidth="1000"
+              Margin="0,90,0,24"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Top"
+              Classes="category-mega-menu category-menu-popup"
+              Classes.open="{Binding IsCategoryMenuOpen}"
+              ClipToBounds="False"
+              IsHitTestVisible="{Binding IsCategoryMenuOpen}">
+            <ContentControl
+                HorizontalContentAlignment="Stretch"
+                Content="{Binding OpenCategoryMenu}" />
+          </Border>
+        </Grid>
+      </Grid>
+
       <!-- In-app profile overlay keeps both opening and closing animations in the visual tree -->
       <Grid
-          ZIndex="20"
+          ZIndex="30"
           IsHitTestVisible="{Binding IsProfilePopupOpen}"
           IsVisible="{Binding !IsPlayerVisible}">
         <Button
@@ -874,83 +900,81 @@
         <Grid
             Width="{Binding Bounds.Width, ElementName=TopIsland}"
             HorizontalAlignment="Center">
-          <Border
-              ZIndex="1"
-              Width="320"
-              Margin="0,94,0,0"
-              Padding="14"
-              HorizontalAlignment="Right"
-              VerticalAlignment="Top"
-              Classes="profile-popup"
-              Classes.open="{Binding IsProfilePopupOpen}"
-              IsHitTestVisible="{Binding IsProfilePopupOpen}">
-            <StackPanel Spacing="12">
-              <Grid ColumnDefinitions="52,*,40">
-                <Border
-                    Width="48"
-                    Height="48"
-                    Background="{StaticResource Brush.Brand.Soft}"
-                    CornerRadius="24"
-                    ClipToBounds="True">
-                  <Grid>
-                    <TextBlock
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        Foreground="{StaticResource Brush.Brand}"
-                        FontSize="14"
-                        FontWeight="Bold"
-                        Text="{Binding ProfileInitials}" />
-                    <Image Source="{Binding ProfileImageSource^}" Stretch="UniformToFill" />
-                  </Grid>
-                </Border>
+          <Grid
+              Width="38"
+              Margin="0,0,7,0"
+              HorizontalAlignment="Right">
+            <Border
+                x:Name="ProfilePopup"
+                ZIndex="1"
+                Width="220"
+                Margin="0,92,0,0"
+                Padding="8"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                Classes="profile-popup"
+                Classes.open="{Binding IsProfilePopupOpen}"
+                IsHitTestVisible="{Binding IsProfilePopupOpen}">
+            <StackPanel Spacing="7">
+              <Border Padding="8" Classes="profile-header-card">
                 <StackPanel
-                    Grid.Column="1"
-                    Margin="16,0,10,0"
-                    VerticalAlignment="Center"
-                    Spacing="3">
-                  <TextBlock
-                      FontSize="15"
-                      FontWeight="Bold"
-                      Text="{Binding ProfileName}"
-                      TextTrimming="CharacterEllipsis" />
-                  <TextBlock
-                      Classes="muted"
-                      FontSize="12"
-                      Text="{Binding ProfileEmail}"
-                      TextTrimming="CharacterEllipsis" />
-                  <TextBlock
-                      IsVisible="{Binding IsPremium}"
-                      Foreground="{StaticResource Brush.Brand}"
-                      FontSize="11"
-                      FontWeight="SemiBold"
-                      Text="Premium" />
+                    HorizontalAlignment="Center"
+                    Orientation="Horizontal"
+                    Spacing="8">
+                  <Border
+                      Width="34"
+                      Height="34"
+                      Background="{DynamicResource Brush.TopBar.Accent.Soft}"
+                      CornerRadius="17"
+                      ClipToBounds="True">
+                    <Grid>
+                      <TextBlock
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center"
+                          Foreground="{DynamicResource Brush.TopBar.Accent}"
+                          FontSize="11"
+                          FontWeight="Bold"
+                          Text="{Binding ProfileInitials}" />
+                      <Image Source="{Binding ProfileImageSource^}" Stretch="UniformToFill" />
+                    </Grid>
+                  </Border>
+                  <StackPanel
+                      MaxWidth="150"
+                      VerticalAlignment="Center"
+                      Spacing="1">
+                    <TextBlock
+                        FontFamily="{StaticResource Font.Body}"
+                        FontSize="13"
+                        FontWeight="SemiBold"
+                        Foreground="{DynamicResource Brush.Text.Primary}"
+                        Text="{Binding ProfileName}"
+                        TextTrimming="CharacterEllipsis" />
+                    <TextBlock
+                        Classes="muted"
+                        FontFamily="{StaticResource Font.Body}"
+                        FontSize="10"
+                        Text="{Binding ProfileEmail}"
+                        TextTrimming="CharacterEllipsis" />
+                    <TextBlock
+                        IsVisible="{Binding IsPremium}"
+                        Foreground="{DynamicResource Brush.TopBar.Accent}"
+                        FontSize="10"
+                        FontWeight="SemiBold"
+                        Text="Premium" />
+                  </StackPanel>
                 </StackPanel>
-                <Button
-                    Grid.Column="2"
-                    VerticalAlignment="Center"
-                    Classes="popup-logout"
-                    Command="{Binding LogoutCommand}"
-                    AutomationProperties.Name="Выйти из аккаунта"
-                    ToolTip.Tip="Выйти из аккаунта">
-                  <TextBlock Classes="symbol" FontSize="22" Text="logout" />
-                </Button>
-              </Grid>
-
-              <Border
-                  Height="1"
-                  Margin="2,0"
-                  Background="{DynamicResource Brush.Border.Subtle}" />
+              </Border>
 
               <StackPanel Spacing="3">
                 <Button
                     Classes="popup-nav"
                     Classes.active="{Binding IsLibraryVisible}"
                     Command="{Binding ShowLibraryCommand}">
-                  <StackPanel Orientation="Horizontal" Spacing="10">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
                     <TextBlock
                         Classes="symbol"
                         Classes.filled="{Binding IsLibraryVisible}"
-                        FontSize="21"
+                        FontSize="17"
                         Text="video_library" />
                     <TextBlock VerticalAlignment="Center" Text="Библиотека" />
                   </StackPanel>
@@ -959,24 +983,35 @@
                     Classes="popup-nav"
                     Classes.active="{Binding IsSettingsVisible}"
                     Command="{Binding OpenSettingsCommand}">
-                  <StackPanel Orientation="Horizontal" Spacing="10">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
                     <TextBlock
                         Classes="symbol"
                         Classes.filled="{Binding IsSettingsVisible}"
-                        FontSize="21"
+                        FontSize="17"
                         Text="settings" />
                     <TextBlock VerticalAlignment="Center" Text="Настройки" />
                   </StackPanel>
                 </Button>
+                <Button
+                    Classes="popup-nav logout"
+                    Command="{Binding LogoutCommand}"
+                    AutomationProperties.Name="Выйти из аккаунта">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Classes="symbol" FontSize="17" Text="logout" />
+                    <TextBlock VerticalAlignment="Center" Text="Выйти" />
+                  </StackPanel>
+                </Button>
               </StackPanel>
             </StackPanel>
-          </Border>
+            </Border>
+          </Grid>
         </Grid>
       </Grid>
     </Grid>
 
     <!-- Startup and mandatory authentication -->
     <Grid
+        x:Name="StartupOverlay"
         Classes="startup-overlay"
         Classes.visible="{Binding IsStartupVisible}"
         IsVisible="{Binding IsStartupPresented}"
@@ -1002,26 +1037,22 @@
             <transitions:SoftSlideFadeTransition />
           </Carousel.PageTransition>
 
-          <StackPanel
-              Width="440"
-              HorizontalAlignment="Center"
-              VerticalAlignment="Center"
-              Spacing="26">
+          <Grid x:Name="LoginWizardPage">
+            <StackPanel
+                Width="440"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Classes="login-dismissable"
+                Classes.dismissed="{Binding IsLoginSuccessTransition}"
+                Spacing="26">
             <Grid
+                x:Name="LoginBrandComposition"
                 Width="260"
                 Height="78"
                 Margin="0,0,0,4"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
                 IsHitTestVisible="False">
-              <Image
-                  Width="78"
-                  Height="78"
-                  Classes="login-fox-logo"
-                  Classes.visible="{Binding IsLoginFoxVisible}"
-                  RenderOptions.BitmapInterpolationMode="HighQuality"
-                  Source="avares://Rezui/Assets/rezui.png"
-                  Stretch="Uniform" />
               <StackPanel
                   Classes="login-connection-dots"
                   Classes.visible="{Binding AreLoginDotsVisible}"
@@ -1138,13 +1169,15 @@
                   TextAlignment="Center"
                   TextWrapping="Wrap" />
             </StackPanel>
-          </StackPanel>
+            </StackPanel>
+          </Grid>
 
-          <StackPanel
-              Width="440"
-              HorizontalAlignment="Center"
-              VerticalAlignment="Center"
-              Spacing="22">
+          <Grid x:Name="MirrorWizardPage">
+            <StackPanel
+                Width="440"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="22">
             <StackPanel HorizontalAlignment="Center" Spacing="5">
               <TextBlock
                   HorizontalAlignment="Center"
@@ -1287,7 +1320,8 @@
                     TextWrapping="Wrap" />
               </StackPanel>
             </StackPanel>
-          </StackPanel>
+            </StackPanel>
+          </Grid>
         </Carousel>
       </StackPanel>
 
@@ -1313,46 +1347,68 @@
           </CrossFade>
         </Carousel.PageTransition>
 
-        <Button
-            x:Name="MirrorAnchorButton"
-            HorizontalAlignment="Center"
-            Classes="mirror-anchor"
-            Command="{Binding OpenMirrorWizardCommand}"
-            IsEnabled="{Binding IsMirrorSelectorEnabled}">
-          <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="8">
-            <TextBlock
-                VerticalAlignment="Center"
-                Classes="symbol connection-spinner"
-                IsVisible="{Binding IsMirrorCheckRunning}"
-                Text="progress_activity" />
-            <TextBlock
-                VerticalAlignment="Center"
-                Classes="symbol"
-                IsVisible="{Binding !IsMirrorCheckRunning}"
-                Text="language" />
-            <TextBlock
-                Grid.Column="1"
-                VerticalAlignment="Center"
-                Text="{Binding MirrorSelectorLabel}" />
-          </Grid>
-        </Button>
+        <Grid>
+          <Button
+              x:Name="MirrorAnchorButton"
+              HorizontalAlignment="Center"
+              Classes="mirror-anchor login-footer-item"
+              Classes.dismissed="{Binding IsLoginSuccessTransition}"
+              Command="{Binding OpenMirrorWizardCommand}"
+              IsEnabled="{Binding IsMirrorSelectorEnabled}">
+            <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="8">
+              <TextBlock
+                  VerticalAlignment="Center"
+                  Classes="symbol connection-spinner"
+                  IsVisible="{Binding IsMirrorCheckRunning}"
+                  Text="progress_activity" />
+              <TextBlock
+                  VerticalAlignment="Center"
+                  Classes="symbol"
+                  IsVisible="{Binding !IsMirrorCheckRunning}"
+                  Text="language" />
+              <TextBlock
+                  Grid.Column="1"
+                  VerticalAlignment="Center"
+                  Text="{Binding MirrorSelectorLabel}" />
+            </Grid>
+          </Button>
+        </Grid>
 
-        <Button
-            HorizontalAlignment="Center"
-            Classes="mirror-anchor"
-            Command="{Binding CloseMirrorWizardCommand}">
-          <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="8">
-            <TextBlock
-                VerticalAlignment="Center"
-                Classes="symbol"
-                Text="arrow_back" />
-            <TextBlock
-                Grid.Column="1"
-                VerticalAlignment="Center"
-                Text="Вернуться ко входу" />
-          </Grid>
-        </Button>
+        <Grid>
+          <Button
+              HorizontalAlignment="Center"
+              Classes="mirror-anchor login-footer-item"
+              Classes.dismissed="{Binding IsLoginSuccessTransition}"
+              Command="{Binding CloseMirrorWizardCommand}">
+            <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="8">
+              <TextBlock
+                  VerticalAlignment="Center"
+                  Classes="symbol"
+                  Text="arrow_back" />
+              <TextBlock
+                  Grid.Column="1"
+                  VerticalAlignment="Center"
+                  Text="Вернуться ко входу" />
+            </Grid>
+          </Button>
+        </Grid>
       </Carousel>
+
+      <Image
+          x:Name="LoginFoxLogo"
+          Grid.RowSpan="2"
+          Width="78"
+          Height="78"
+          HorizontalAlignment="Center"
+          VerticalAlignment="Center"
+          IsHitTestVisible="False"
+          Classes="login-fox-logo"
+          Classes.centered="{Binding IsLoginFoxCentered}"
+          Classes.motion-suppressed="{Binding IsLoginFoxMotionSuppressed}"
+          Classes.visible="{Binding IsLoginFoxVisible}"
+          RenderOptions.BitmapInterpolationMode="HighQuality"
+          Source="avares://Rezui/Assets/rezui.png"
+          Stretch="Uniform" />
 
       <Grid
           x:Name="StartupLoadingContent"
@@ -1360,30 +1416,31 @@
           Classes="startup-loading-content"
           IsVisible="{Binding IsStartupLoading}"
           IsHitTestVisible="{Binding IsStartupLoading}">
-        <StackPanel
-            Width="440"
+        <Image
+            x:Name="StartupLoadingLogo"
+            Width="78"
+            Height="78"
             HorizontalAlignment="Center"
             VerticalAlignment="Center"
-            Spacing="24">
-          <Image
-              Width="88"
-              Height="88"
-              HorizontalAlignment="Center"
-              RenderOptions.BitmapInterpolationMode="HighQuality"
-              Source="avares://Rezui/Assets/rezui.png"
-              Stretch="Uniform" />
-          <TextBlock
-              HorizontalAlignment="Center"
-              VerticalAlignment="Center"
-              Classes="symbol login-spinner"
-              FontSize="30"
-              Foreground="{DynamicResource Brush.Text.Secondary}"
-              Text="progress_activity">
-            <TextBlock.RenderTransform>
-              <RotateTransform />
-            </TextBlock.RenderTransform>
-          </TextBlock>
-        </StackPanel>
+            Classes="startup-loading-logo"
+            Classes.handoff="{Binding IsLoginSuccessTransition}"
+            RenderOptions.BitmapInterpolationMode="HighQuality"
+            Source="avares://Rezui/Assets/rezui.png"
+            Stretch="Uniform" />
+        <TextBlock
+            x:Name="StartupSpinner"
+            Margin="0,132,0,0"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Classes="symbol login-spinner startup-spinner"
+            Classes.visible="{Binding IsStartupLoading}"
+            FontSize="30"
+            Foreground="{DynamicResource Brush.Text.Secondary}"
+            Text="progress_activity">
+          <TextBlock.RenderTransform>
+            <RotateTransform />
+          </TextBlock.RenderTransform>
+        </TextBlock>
       </Grid>
     </Grid>
 

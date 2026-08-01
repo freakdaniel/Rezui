@@ -40,4 +40,8 @@
     <None Include="../../LICENSES/**" Link="LICENSES/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../README.md" Link="README.md" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Rezui.Tests" />
+  </ItemGroup>
 </Project>

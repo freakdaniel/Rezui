@@ -96,7 +96,10 @@ public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
 
         Settings.RememberSession = true;
         Settings.AuthenticationCookies.Clear();
-        CopyAuthenticationCookies(_client.Options.Cookies, Settings.AuthenticationCookies);
+        CopyAuthenticationCookies(
+            _client.Options.Cookies,
+            state.CookieNames,
+            Settings.AuthenticationCookies);
 
         await _settingsService.SaveAsync(Settings, cancellationToken);
         return state;
@@ -236,9 +239,13 @@ public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
 
     private static void CopyAuthenticationCookies(
         IDictionary<string, string> source,
+        IEnumerable<string> authenticationCookieNames,
         IDictionary<string, string> destination)
     {
-        foreach (var name in new[] { "dle_user_id", "dle_password", "dle_hash" })
+        var names = authenticationCookieNames
+            .Concat(new[] { "dle_user_id", "dle_password", "dle_hash" })
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+        foreach (var name in names)
         {
             if (source.TryGetValue(name, out var value) && !string.IsNullOrWhiteSpace(value))
             {

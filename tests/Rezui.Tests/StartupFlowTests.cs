@@ -1,4 +1,6 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Rezui.Models;
 using Rezui.Services;
@@ -23,6 +25,18 @@ public sealed class StartupFlowTests
             window.FindControl<Grid>("StartupLoadingContent"));
         var wizard = Assert.IsType<StackPanel>(
             window.FindControl<StackPanel>("StartupWizardContent"));
+        var overlay = Assert.IsType<Grid>(
+            window.FindControl<Grid>("StartupOverlay"));
+        var brand = Assert.IsType<Grid>(
+            window.FindControl<Grid>("LoginBrandComposition"));
+        var loginFox = Assert.IsType<Image>(
+            window.FindControl<Image>("LoginFoxLogo"));
+        var loadingLogo = Assert.IsType<Image>(
+            window.FindControl<Image>("StartupLoadingLogo"));
+        var mirrorAnchor = Assert.IsType<Button>(
+            window.FindControl<Button>("MirrorAnchorButton"));
+        var startupSpinner = Assert.IsType<TextBlock>(
+            window.FindControl<TextBlock>("StartupSpinner"));
 
         window.Show();
         try
@@ -37,11 +51,87 @@ public sealed class StartupFlowTests
             Assert.False(loading.IsVisible);
             Assert.True(wizard.IsVisible);
             Assert.True(viewModel.IsStartupAuthenticationRequired);
+
+            viewModel.IsLoginFoxVisible = true;
+            window.UpdateLayout();
+            await Task.Delay(220);
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick(40);
+
+            AssertPointsAreClose(
+                GetCenter(brand, window) + new Vector(-92, 0),
+                GetCenter(loginFox, window));
+
+            viewModel.IsLoginFoxMotionSuppressed = false;
+            window.UpdateLayout();
+            await Task.Delay(20);
+            viewModel.IsLoginFoxCentered = true;
+            window.UpdateLayout();
+            await Task.Delay(120);
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick(20);
+
+            var initialFoxCenter = GetCenter(brand, window) + new Vector(-92, 0);
+            var finalFoxCenter = GetCenter(overlay, window);
+            var movingFoxCenter = GetCenter(loginFox, window);
+            Assert.InRange(
+                movingFoxCenter.Y,
+                initialFoxCenter.Y + 1,
+                finalFoxCenter.Y - 1);
+
+            await Task.Delay(320);
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick(60);
+
+            Assert.Equal(loadingLogo.Bounds.Size, loginFox.Bounds.Size);
+            AssertPointsAreClose(GetCenter(overlay, window), GetCenter(loginFox, window));
+
+            viewModel.IsLoginFoxMotionSuppressed = true;
+            viewModel.IsLoginFoxCentered = false;
+            window.UpdateLayout();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick(1);
+            AssertPointsAreClose(
+                GetCenter(brand, window) + new Vector(-92, 0),
+                GetCenter(loginFox, window));
+
+            viewModel.IsLoginSuccessTransition = true;
+            window.UpdateLayout();
+            await Task.Delay(320);
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick(40);
+
+            Assert.Equal(0, mirrorAnchor.Opacity);
+            Assert.False(mirrorAnchor.IsHitTestVisible);
+
+            viewModel.IsStartupLoading = true;
+            window.UpdateLayout();
+            Assert.True(startupSpinner.Opacity < 1);
+            await Task.Delay(320);
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick(40);
+            Assert.Equal(1, startupSpinner.Opacity);
+
+            viewModel.IsShellVisible = true;
+            viewModel.IsStartupVisible = false;
+            window.UpdateLayout();
+            Assert.True(overlay.Opacity > 0);
+            await Task.Delay(360);
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick(50);
+            Assert.Equal(0, overlay.Opacity);
         }
         finally
         {
             window.Close();
         }
+    }
+
+    private static Point GetCenter(Control control, Visual relativeTo)
+    {
+        var localCenter = new Point(control.Bounds.Width / 2, control.Bounds.Height / 2);
+        return control.TranslatePoint(localCenter, relativeTo) ?? default;
+    }
+
+    private static void AssertPointsAreClose(Point expected, Point actual)
+    {
+        Assert.True(
+            Math.Abs(expected.X - actual.X) <= 1
+            && Math.Abs(expected.Y - actual.Y) <= 1,
+            $"Expected {expected}, actual {actual}");
     }
 
     [Fact]
@@ -79,6 +169,40 @@ public sealed class StartupFlowTests
     }
 
     [Fact]
+    public void StartupPrefersSavedAvailableMirrorWhenSessionCookiesExist()
+    {
+        var settings = new AppSettings
+        {
+            Origin = "https://rezka.fi",
+            AuthenticationCookies =
+            {
+                ["dle_user_id"] = "user-id",
+                ["dle_password"] = "password-hash"
+            }
+        };
+        var fastest = new MirrorStatusItem(
+            RezkaMirrors.Primary,
+            "primary",
+            5,
+            true,
+            false,
+            false);
+        var saved = new MirrorStatusItem(
+            "https://rezka.fi",
+            "rezka.fi",
+            50,
+            true,
+            false,
+            false);
+
+        var selected = MainWindowViewModel.FindRestorableSessionMirror(
+            settings,
+            new[] { fastest, saved });
+
+        Assert.Same(saved, selected);
+    }
+
+    [Fact]
     public async Task StartupBlocksLoginWhenEveryMirrorIsUnavailable()
     {
         using var fixture = new StartupFixture();
@@ -102,15 +226,78 @@ public sealed class StartupFlowTests
         Assert.True(viewModel.IsLoginWizardStep);
         Assert.False(viewModel.IsMirrorWizardStep);
 
-        viewModel.OpenMirrorWizardCommand.Execute(null);
+        await viewModel.OpenMirrorWizardCommand.ExecuteAsync(null);
 
         Assert.Equal(1, viewModel.StartupWizardStep);
         Assert.True(viewModel.IsMirrorWizardStep);
 
-        viewModel.CloseMirrorWizardCommand.Execute(null);
+        await viewModel.CloseMirrorWizardCommand.ExecuteAsync(null);
 
         Assert.Equal(0, viewModel.StartupWizardStep);
         Assert.True(viewModel.IsLoginWizardStep);
+    }
+
+    [Fact]
+    public async Task RapidOppositeWizardClicksCannotInterruptActiveTransition()
+    {
+        using var fixture = new StartupFixture();
+        var viewModel = fixture.CreateViewModel();
+        await viewModel.Initialization;
+
+        var opening = viewModel.OpenMirrorWizardCommand.ExecuteAsync(null);
+        viewModel.CloseMirrorWizardCommand.Execute(null);
+        viewModel.OpenMirrorWizardCommand.Execute(null);
+        viewModel.CloseMirrorWizardCommand.Execute(null);
+
+        await opening;
+
+        Assert.True(viewModel.IsMirrorWizardStep);
+        Assert.False(viewModel.IsWizardTransitioning);
+
+        await viewModel.CloseMirrorWizardCommand.ExecuteAsync(null);
+
+        Assert.True(viewModel.IsLoginWizardStep);
+        Assert.False(viewModel.IsWizardTransitioning);
+    }
+
+    [AvaloniaFact]
+    public async Task RepeatedWizardNavigationLeavesBothPagesFullyOpaque()
+    {
+        using var fixture = new StartupFixture();
+        var viewModel = fixture.CreateViewModel();
+        var window = new MainWindow
+        {
+            DataContext = viewModel
+        };
+        var loginPage = Assert.IsType<Grid>(
+            window.FindControl<Grid>("LoginWizardPage"));
+        var mirrorPage = Assert.IsType<Grid>(
+            window.FindControl<Grid>("MirrorWizardPage"));
+
+        window.Show();
+        try
+        {
+            await viewModel.Initialization;
+
+            for (var iteration = 0; iteration < 3; iteration++)
+            {
+                await viewModel.OpenMirrorWizardCommand.ExecuteAsync(null);
+                AvaloniaHeadlessPlatform.ForceRenderTimerTick(40);
+                window.UpdateLayout();
+                Assert.Equal(1, mirrorPage.Opacity);
+                Assert.Null(mirrorPage.RenderTransform);
+
+                await viewModel.CloseMirrorWizardCommand.ExecuteAsync(null);
+                AvaloniaHeadlessPlatform.ForceRenderTimerTick(40);
+                window.UpdateLayout();
+                Assert.Equal(1, loginPage.Opacity);
+                Assert.Null(loginPage.RenderTransform);
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
     }
 
     [Fact]

@@ -46,11 +46,15 @@
       <Color x:Key="Color.Action.Contrast.Pressed">#FF444449</Color>
       <Color x:Key="Color.Action.Contrast.Border">#FF1C1C1F</Color>
       <Color x:Key="Color.Text.OnContrast">#FFFFFFFF</Color>
+      <Color x:Key="Color.TopBar.Accent">#FF1C1C1F</Color>
+      <Color x:Key="Color.TopBar.Accent.Soft">#141C1C1F</Color>
       <SolidColorBrush x:Key="Brush.Action.Contrast" Color="{StaticResource Color.Action.Contrast}" />
       <SolidColorBrush x:Key="Brush.Action.Contrast.Hover" Color="{StaticResource Color.Action.Contrast.Hover}" />
       <SolidColorBrush x:Key="Brush.Action.Contrast.Pressed" Color="{StaticResource Color.Action.Contrast.Pressed}" />
       <SolidColorBrush x:Key="Brush.Action.Contrast.Border" Color="{StaticResource Color.Action.Contrast.Border}" />
       <SolidColorBrush x:Key="Brush.Text.OnContrast" Color="{StaticResource Color.Text.OnContrast}" />
+      <SolidColorBrush x:Key="Brush.TopBar.Accent" Color="{StaticResource Color.TopBar.Accent}" />
+      <SolidColorBrush x:Key="Brush.TopBar.Accent.Soft" Color="{StaticResource Color.TopBar.Accent.Soft}" />
       <Color x:Key="Color.Scrim">#99101011</Color>
       <Color x:Key="Color.Player.Chrome">#FF171719</Color>
       <Color x:Key="Color.TopMask.Tint">#38F3F3F4</Color>
@@ -71,11 +75,15 @@
       <Color x:Key="Color.Action.Contrast.Pressed">#FFE4E4E4</Color>
       <Color x:Key="Color.Action.Contrast.Border">#24000000</Color>
       <Color x:Key="Color.Text.OnContrast">#FF000000</Color>
+      <Color x:Key="Color.TopBar.Accent">#FFFFFFFF</Color>
+      <Color x:Key="Color.TopBar.Accent.Soft">#1AFFFFFF</Color>
       <SolidColorBrush x:Key="Brush.Action.Contrast" Color="{StaticResource Color.Action.Contrast}" />
       <SolidColorBrush x:Key="Brush.Action.Contrast.Hover" Color="{StaticResource Color.Action.Contrast.Hover}" />
       <SolidColorBrush x:Key="Brush.Action.Contrast.Pressed" Color="{StaticResource Color.Action.Contrast.Pressed}" />
       <SolidColorBrush x:Key="Brush.Action.Contrast.Border" Color="{StaticResource Color.Action.Contrast.Border}" />
       <SolidColorBrush x:Key="Brush.Text.OnContrast" Color="{StaticResource Color.Text.OnContrast}" />
+      <SolidColorBrush x:Key="Brush.TopBar.Accent" Color="{StaticResource Color.TopBar.Accent}" />
+      <SolidColorBrush x:Key="Brush.TopBar.Accent.Soft" Color="{StaticResource Color.TopBar.Accent.Soft}" />
       <Color x:Key="Color.Scrim">#CC080809</Color>
       <Color x:Key="Color.Player.Chrome">#FF101011</Color>
       <Color x:Key="Color.TopMask.Tint">#460D0D0E</Color>

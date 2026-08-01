@@ -50,4 +50,27 @@ public sealed class SettingsServiceTests
         Assert.Equal(ThemePreference.Light, restored.Theme);
         Assert.Equal("https://example.com", restored.Origin);
     }
+
+    [Fact]
+    public async Task SaveAndLoadPreservesAuthenticationCookies()
+    {
+        using var directory = new TemporaryDirectory();
+        var service = new SettingsService(directory.Path);
+        var settings = new AppSettings
+        {
+            Origin = "https://example.com",
+            AuthenticationCookies =
+            {
+                ["dle_user_id"] = "user-id",
+                ["dle_password"] = "password-hash"
+            }
+        };
+
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await service.SaveAsync(settings, cancellationToken);
+        var restored = await service.LoadAsync(cancellationToken);
+
+        Assert.Equal("user-id", restored.AuthenticationCookies["dle_user_id"]);
+        Assert.Equal("password-hash", restored.AuthenticationCookies["dle_password"]);
+    }
 }

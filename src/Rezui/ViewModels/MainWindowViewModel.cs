@@ -57,6 +57,42 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             new QuickSearchItem("Аниме", "аниме")
         ];
 
+        FilmsMenu = CreateCategoryMenu(
+            "films",
+            "Фильмы",
+            "фильмы",
+            ["Вестерны", "Арт-хаус", "Криминал", "Фантастика", "Ужасы", "Документальные", "Познавательные", "Короткометражные"],
+            ["Семейные", "Боевики", "Приключения", "Комедии", "Мюзиклы", "Эротика", "Театр", "Русские"],
+            ["Фэнтези", "Военные", "Драмы", "Мелодрамы", "Музыкальные", "Детские", "Концерт", "Украинские"],
+            ["Биографические", "Детективы", "Спортивные", "Триллеры", "Исторические", "Путешествия", "Стендап", "Зарубежные"]);
+
+        SeriesMenu = CreateCategoryMenu(
+            "series",
+            "Сериалы",
+            "сериалы",
+            ["Военные", "Ужасы", "Фэнтези", "Комедии", "Биографические", "Реальное ТВ", "Русские"],
+            ["Боевики", "Приключения", "Драмы", "Детективы", "Вестерны", "Телепередачи", "Украинские"],
+            ["Арт-хаус", "Семейные", "Мелодрамы", "Криминал", "Документальные", "Стендап", "Зарубежные"],
+            ["Триллеры", "Фантастика", "Спортивные", "Исторические", "Музыкальные", "Эротика"]);
+
+        CartoonsMenu = CreateCategoryMenu(
+            "cartoons",
+            "Мультфильмы",
+            "мультфильмы",
+            ["Фантастика", "Комедии", "Мелодрамы", "Триллеры", "Сказки", "Спортивные", "Детские", "Полнометражные"],
+            ["Фэнтези", "Вестерны", "Арт-хаус", "Исторические", "Семейные", "Познавательные", "Для взрослых", "Советские"],
+            ["Боевики", "Военные", "Детективы", "Документальные", "Ужасы", "Мюзиклы", "Мультсериалы", "Русские"],
+            ["Биографические", "Драмы", "Криминал", "Эротика", "Приключения", "Аниме", "Короткометражные", "Украинские"]);
+
+        AnimeMenu = CreateCategoryMenu(
+            "anime",
+            "Аниме",
+            "аниме",
+            ["Военные", "Комедии", "Романтические", "Музыкальные", "Самурайский боевик", "Пародия", "Кодомо", "Сёнэн-ай"],
+            ["Драмы", "Фантастика", "Исторические", "Эротика", "Спортивные", "Школа", "Сёдзё-ай", "Этти"],
+            ["Детективы", "Фэнтези", "Ужасы", "Боевики", "Образовательные", "Детские", "Сёдзё", "Махо-сёдзё"],
+            ["Триллеры", "Приключения", "Мистические", "Боевые искусства", "Повседневность", "Сказки", "Сёнэн", "Меха"]);
+
         Initialization = InitializeAsync();
     }
 
@@ -65,6 +101,26 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     public PlayerViewModel Player { get; }
 
     public IReadOnlyList<QuickSearchItem> QuickSearches { get; }
+
+    public CategoryMenuDefinition FilmsMenu { get; }
+
+    public CategoryMenuDefinition SeriesMenu { get; }
+
+    public CategoryMenuDefinition CartoonsMenu { get; }
+
+    public CategoryMenuDefinition AnimeMenu { get; }
+
+    public bool IsFilmsMenuOpen =>
+        IsCategoryMenuOpen && ReferenceEquals(OpenCategoryMenu, FilmsMenu);
+
+    public bool IsSeriesMenuOpen =>
+        IsCategoryMenuOpen && ReferenceEquals(OpenCategoryMenu, SeriesMenu);
+
+    public bool IsCartoonsMenuOpen =>
+        IsCategoryMenuOpen && ReferenceEquals(OpenCategoryMenu, CartoonsMenu);
+
+    public bool IsAnimeMenuOpen =>
+        IsCategoryMenuOpen && ReferenceEquals(OpenCategoryMenu, AnimeMenu);
 
     public ObservableCollection<MirrorStatusItem> MirrorStatuses { get; } = [];
 
@@ -132,6 +188,20 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private bool _isProfilePopupOpen;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsFilmsMenuOpen))]
+    [NotifyPropertyChangedFor(nameof(IsSeriesMenuOpen))]
+    [NotifyPropertyChangedFor(nameof(IsCartoonsMenuOpen))]
+    [NotifyPropertyChangedFor(nameof(IsAnimeMenuOpen))]
+    private CategoryMenuDefinition? _openCategoryMenu;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsFilmsMenuOpen))]
+    [NotifyPropertyChangedFor(nameof(IsSeriesMenuOpen))]
+    [NotifyPropertyChangedFor(nameof(IsCartoonsMenuOpen))]
+    [NotifyPropertyChangedFor(nameof(IsAnimeMenuOpen))]
+    private bool _isCategoryMenuOpen;
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsFilmsCategory))]
     [NotifyPropertyChangedFor(nameof(IsSeriesCategory))]
     [NotifyPropertyChangedFor(nameof(IsCartoonsCategory))]
@@ -152,10 +222,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _isStartupPresented = true;
 
-    public bool IsShellVisible => !IsStartupVisible;
-
-    partial void OnIsStartupVisibleChanged(bool value) =>
-        OnPropertyChanged(nameof(IsShellVisible));
+    [ObservableProperty]
+    private bool _isShellVisible;
 
     [ObservableProperty]
     private bool _isStartupLoading = true;
@@ -165,6 +233,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsMirrorSelectorEnabled))]
+    [NotifyPropertyChangedFor(nameof(IsMirrorNavigationEnabled))]
     [NotifyPropertyChangedFor(nameof(CanLogin))]
     private bool _isMirrorCheckRunning = true;
 
@@ -195,11 +264,18 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(IsMirrorWizardStep))]
     private int _startupWizardStep;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsMirrorNavigationEnabled))]
+    private bool _isWizardTransitioning;
+
     public bool IsLoginWizardStep => StartupWizardStep == 0;
 
     public bool IsMirrorWizardStep => StartupWizardStep == 1;
 
     public bool IsMirrorSelectorEnabled => !IsMirrorCheckRunning;
+
+    public bool IsMirrorNavigationEnabled =>
+        IsMirrorSelectorEnabled && !IsWizardTransitioning;
 
     public bool CanLogin => !IsMirrorCheckRunning && HasAvailableMirror;
 
@@ -241,6 +317,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private bool _areLoginDotsVisible;
+
+    [ObservableProperty]
+    private bool _isLoginSuccessTransition;
+
+    [ObservableProperty]
+    private bool _isLoginFoxCentered;
+
+    [ObservableProperty]
+    private bool _isLoginFoxMotionSuppressed = true;
 
     [ObservableProperty]
     private ThemePreference _selectedTheme = ThemePreference.System;
@@ -327,12 +412,33 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private void ToggleProfilePopup() =>
+    private void ToggleProfilePopup()
+    {
+        IsCategoryMenuOpen = false;
         IsProfilePopupOpen = !IsProfilePopupOpen;
+    }
 
     [RelayCommand]
     private void CloseProfilePopup() =>
         IsProfilePopupOpen = false;
+
+    [RelayCommand]
+    private void ToggleCategoryMenu(CategoryMenuDefinition menu)
+    {
+        IsProfilePopupOpen = false;
+        if (IsCategoryMenuOpen && ReferenceEquals(OpenCategoryMenu, menu))
+        {
+            IsCategoryMenuOpen = false;
+            return;
+        }
+
+        OpenCategoryMenu = menu;
+        IsCategoryMenuOpen = true;
+    }
+
+    [RelayCommand]
+    private void CloseCategoryMenu() =>
+        IsCategoryMenuOpen = false;
 
     [RelayCommand]
     private async Task LoginAsync()
@@ -362,14 +468,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 Login,
                 Password);
             Password = string.Empty;
+            await PlayLoginSuccessTransitionAsync(_lifetimeCancellation.Token);
             await CompleteStartupAsync(state);
         }
         catch (Exception exception)
         {
-            IsLoginRunning = false;
-            ResetLoginComposition();
-            ShowLoginStatus(ToUserMessage(exception));
-            Password = string.Empty;
+            ShowAuthenticationRequired(ToUserMessage(exception));
         }
     }
 
@@ -383,11 +487,25 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         await Task.Delay(200, cancellationToken);
     }
 
+    private async Task PlayLoginSuccessTransitionAsync(CancellationToken cancellationToken)
+    {
+        IsLoginSuccessTransition = true;
+        await Task.Delay(TimeSpan.FromMilliseconds(320), cancellationToken);
+
+        IsLoginFoxMotionSuppressed = false;
+        await Task.Delay(TimeSpan.FromMilliseconds(20), cancellationToken);
+        IsLoginFoxCentered = true;
+        await Task.Delay(TimeSpan.FromMilliseconds(440), cancellationToken);
+    }
+
     private void ResetLoginComposition()
     {
+        IsLoginFoxMotionSuppressed = true;
         IsLoginLogoShifted = false;
         IsLoginFoxVisible = false;
         AreLoginDotsVisible = false;
+        IsLoginSuccessTransition = false;
+        IsLoginFoxCentered = false;
     }
 
     [RelayCommand]
@@ -403,17 +521,47 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private void OpenMirrorWizard()
+    private async Task OpenMirrorWizardAsync()
     {
-        if (IsMirrorSelectorEnabled)
+        if (IsMirrorNavigationEnabled)
         {
-            StartupWizardStep = 1;
+            await SetStartupWizardStepAsync(1);
         }
     }
 
     [RelayCommand]
-    private void CloseMirrorWizard() =>
-        StartupWizardStep = 0;
+    private async Task CloseMirrorWizardAsync()
+    {
+        if (!IsWizardTransitioning)
+        {
+            await SetStartupWizardStepAsync(0);
+        }
+    }
+
+    private async Task SetStartupWizardStepAsync(int step)
+    {
+        if (StartupWizardStep == step)
+        {
+            return;
+        }
+
+        IsWizardTransitioning = true;
+        StartupWizardStep = step;
+        try
+        {
+            await Task.Delay(
+                TimeSpan.FromMilliseconds(320),
+                _lifetimeCancellation.Token);
+        }
+        catch (OperationCanceledException) when (_disposed)
+        {
+            // The window is closing; there is no transition left to unlock.
+        }
+        finally
+        {
+            IsWizardTransitioning = false;
+        }
+    }
 
     [RelayCommand]
     private void SelectMirror(MirrorStatusItem? mirror)
@@ -501,12 +649,49 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private async Task LogoutAsync()
     {
         IsProfilePopupOpen = false;
-        await RunBusyAsync(async cancellationToken =>
+        IsCategoryMenuOpen = false;
+        ResetLoginComposition();
+        var hiddenReset = Task.Delay(
+            TimeSpan.FromMilliseconds(220),
+            _lifetimeCancellation.Token);
+
+        try
         {
-            await _rezka.LogoutAsync(cancellationToken);
-            ApplyAuthentication(null);
-            ShowAuthenticationRequired();
-        });
+            await _rezka.LogoutAsync(_lifetimeCancellation.Token);
+        }
+        catch (OperationCanceledException) when (_disposed)
+        {
+            return;
+        }
+        catch
+        {
+            // Logout clears the local session in a finally block. The login
+            // screen is still the correct destination if the remote call fails.
+        }
+
+        await hiddenReset;
+        ApplyAuthentication(null);
+        StatusMessage = string.Empty;
+        await TransitionToAuthenticationAsync(_lifetimeCancellation.Token);
+    }
+
+    private async Task TransitionToAuthenticationAsync(CancellationToken cancellationToken)
+    {
+        IsStartupPresented = true;
+        IsStartupVisible = false;
+        IsStartupLoading = false;
+        IsStartupAuthenticationRequired = true;
+        StartupWizardStep = 0;
+        StartupTitle = "Вход в аккаунт";
+        StartupMessage = LoginPrompt;
+        IsLoginRunning = false;
+        ClearLoginStatus();
+        Password = string.Empty;
+
+        await Task.Delay(TimeSpan.FromMilliseconds(60), cancellationToken);
+        IsStartupVisible = true;
+        await Task.Delay(TimeSpan.FromMilliseconds(360), cancellationToken);
+        IsShellVisible = false;
     }
 
     [RelayCommand]
@@ -533,6 +718,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task BrowseCategoryAsync(string descriptor)
     {
+        IsCategoryMenuOpen = false;
         var separatorIndex = descriptor.IndexOf('|');
         if (separatorIndex <= 0 || separatorIndex == descriptor.Length - 1)
         {
@@ -757,8 +943,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         SetStartupLoading();
         RebuildRecent();
         Navigate(Page.Home);
+        IsShellVisible = true;
+        await Task.Delay(TimeSpan.FromMilliseconds(60), _lifetimeCancellation.Token);
+
         IsStartupVisible = false;
-        await Task.Delay(TimeSpan.FromMilliseconds(240), _lifetimeCancellation.Token);
+        await Task.Delay(TimeSpan.FromMilliseconds(360), _lifetimeCancellation.Token);
         IsStartupPresented = false;
         StatusMessage = "Сессия восстановлена";
         RequestLibraryRefresh(LibrarySyncReason.SessionRestored);
@@ -1072,10 +1261,20 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         AuthenticationState? state,
         AccountProfile? profile = null)
     {
+        var profileEmail = profile?.Email?.Trim() ?? string.Empty;
+        var profileName = profile?.Username?.Trim();
+        if (string.IsNullOrWhiteSpace(profileName))
+        {
+            var separatorIndex = profileEmail.IndexOf('@');
+            profileName = separatorIndex > 0
+                ? profileEmail[..separatorIndex]
+                : "Профиль";
+        }
+
         IsAuthenticated = state?.IsAuthenticated == true;
         IsPremium = profile?.IsPremium ?? state?.IsPremium == true;
-        ProfileName = profile?.Username ?? "Профиль";
-        ProfileEmail = profile?.Email ?? string.Empty;
+        ProfileName = profileName;
+        ProfileEmail = profileEmail;
         ProfileInitials = GetInitials(ProfileName);
         ProfileImageSource = _images.LoadAsync(profile?.AvatarUrl, _rezka.Origin);
         AccountLabel = IsPremium ? "Premium" : ProfileName;
@@ -1113,6 +1312,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private void Navigate(Page page)
     {
         IsProfilePopupOpen = false;
+        IsCategoryMenuOpen = false;
         if (page != Page.Library)
         {
             ActiveCategory = null;
@@ -1128,8 +1328,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private void ResetStartupState()
     {
         IsProfilePopupOpen = false;
+        IsCategoryMenuOpen = false;
         IsStartupPresented = true;
         IsStartupVisible = true;
+        IsShellVisible = false;
         IsStartupLoading = true;
         IsStartupAuthenticationRequired = false;
         MirrorStatuses.Clear();
@@ -1149,6 +1351,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         IsStartupPresented = true;
         IsStartupVisible = true;
+        IsShellVisible = false;
         IsStartupLoading = true;
         IsStartupAuthenticationRequired = false;
     }
@@ -1156,8 +1359,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private void ShowAuthenticationRequired(string? statusMessage = null)
     {
         IsProfilePopupOpen = false;
+        IsCategoryMenuOpen = false;
         IsStartupPresented = true;
         IsStartupVisible = true;
+        IsShellVisible = false;
         IsStartupLoading = false;
         IsStartupAuthenticationRequired = true;
         StartupWizardStep = 0;
@@ -1310,7 +1515,36 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             IsMirrorCheckRunning = false;
         }
 
-        SelectAutoMirror();
+        var sessionMirror = FindRestorableSessionMirror(_settings, MirrorStatuses);
+        if (sessionMirror is not null)
+        {
+            IsAutoMirrorSelection = false;
+            MirrorSelectorLabel = $"Зеркало: {sessionMirror.DisplayName}";
+            ApplyMirrorSelection(sessionMirror.Origin);
+        }
+        else
+        {
+            SelectAutoMirror();
+        }
+    }
+
+    internal static MirrorStatusItem? FindRestorableSessionMirror(
+        AppSettings settings,
+        IEnumerable<MirrorStatusItem> mirrors)
+    {
+        if (!settings.RememberSession
+            || settings.AuthenticationCookies.Count == 0
+            || string.IsNullOrWhiteSpace(settings.Origin))
+        {
+            return null;
+        }
+
+        return mirrors.FirstOrDefault(mirror =>
+            mirror.IsAvailable
+            && string.Equals(
+                mirror.Origin,
+                settings.Origin,
+                StringComparison.OrdinalIgnoreCase));
     }
 
     private void UpsertMirror(MirrorProbeResult probe)
@@ -1364,6 +1598,29 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 item.IsSelected = selected;
             }
         }
+    }
+
+    private static CategoryMenuDefinition CreateCategoryMenu(
+        string category,
+        string title,
+        string searchNoun,
+        params string[][] columns)
+    {
+        var menuColumns = columns
+            .Select(column => new CategoryMenuColumn(
+                column
+                    .Select(item => new CategoryMenuItem(
+                        item,
+                        $"{category}|{item.ToLowerInvariant()} {searchNoun}"))
+                    .ToArray()))
+            .ToArray();
+
+        return new CategoryMenuDefinition(
+            title,
+            $"Все {searchNoun}",
+            $"{category}|{searchNoun}",
+            $"{category}|новинки {searchNoun}",
+            menuColumns);
     }
 
     private static string GetInitials(string value)

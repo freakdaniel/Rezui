@@ -64,6 +64,17 @@ public sealed record LibraryFolderItem(
     int ItemCount,
     IReadOnlyList<MediaCardItem> Items);
 
+public sealed record CategoryMenuItem(string Title, string Descriptor);
+
+public sealed record CategoryMenuColumn(IReadOnlyList<CategoryMenuItem> Items);
+
+public sealed record CategoryMenuDefinition(
+    string Title,
+    string AllLabel,
+    string AllDescriptor,
+    string NewDescriptor,
+    IReadOnlyList<CategoryMenuColumn> Columns);
+
 public sealed class MediaCardItem
 {
     public MediaCardItem(

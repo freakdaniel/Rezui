@@ -146,7 +146,8 @@
     <Setter Property="BorderThickness" Value="1" />
   </Style>
   <Style Selector="Button.nav">
-    <Setter Property="Padding" Value="14,10" />
+    <Setter Property="Padding" Value="9,8" />
+    <Setter Property="FontSize" Value="13" />
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderBrush" Value="Transparent" />
     <Setter Property="BorderThickness" Value="1" />
@@ -180,20 +181,36 @@
     </Setter>
   </Style>
   <Style Selector="Button.nav.category">
-    <Setter Property="Padding" Value="11,10" />
-    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Padding" Value="7,8" />
+    <Setter Property="FontSize" Value="12" />
   </Style>
   <Style Selector="Button.nav:pointerover">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
   </Style>
   <Style Selector="Button.nav.active">
-    <Setter Property="Background" Value="{StaticResource Brush.Brand.Soft}" />
-    <Setter Property="Foreground" Value="{StaticResource Brush.Brand}" />
+    <Setter Property="Background" Value="{DynamicResource Brush.TopBar.Accent.Soft}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TopBar.Accent}" />
   </Style>
   <Style Selector="Button.nav.active:pointerover">
-    <Setter Property="Background" Value="{StaticResource Brush.Brand.Soft}" />
-    <Setter Property="Foreground" Value="{StaticResource Brush.Brand}" />
+    <Setter Property="Background" Value="{DynamicResource Brush.TopBar.Accent.Soft}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TopBar.Accent}" />
+  </Style>
+  <Style Selector="Button.nav.menu-open, Button.nav.menu-open:pointerover">
+    <Setter Property="Background" Value="{DynamicResource Brush.TopBar.Accent.Soft}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TopBar.Accent}" />
+  </Style>
+  <Style Selector="TextBlock.chevron">
+    <Setter Property="RenderTransform" Value="rotate(0deg)" />
+    <Setter Property="RenderTransformOrigin" Value="50%,50%" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.16" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Button.nav.menu-open TextBlock.chevron">
+    <Setter Property="RenderTransform" Value="rotate(180deg)" />
   </Style>
   <Style Selector="Button.nav:pressed">
     <Setter Property="RenderTransform" Value="scale(1)" />
@@ -213,8 +230,8 @@
     <Setter Property="BorderThickness" Value="1" />
   </Style>
   <Style Selector="Button.profile-avatar">
-    <Setter Property="Width" Value="42" />
-    <Setter Property="Height" Value="42" />
+    <Setter Property="Width" Value="38" />
+    <Setter Property="Height" Value="38" />
     <Setter Property="Padding" Value="2" />
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderBrush" Value="Transparent" />
@@ -260,36 +277,9 @@
       </ControlTemplate>
     </Setter>
   </Style>
-  <Style Selector="Button.popup-logout">
-    <Setter Property="Width" Value="42" />
-    <Setter Property="Height" Value="42" />
-    <Setter Property="Padding" Value="0" />
-    <Setter Property="Background" Value="Transparent" />
-    <Setter Property="BorderThickness" Value="0" />
-    <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
-    <Setter Property="Cursor" Value="Hand" />
-    <Setter Property="Transitions">
-      <Transitions>
-        <BrushTransition Property="Foreground" Duration="0:0:0.16" />
-      </Transitions>
-    </Setter>
-    <Setter Property="Template">
-      <ControlTemplate>
-        <ContentPresenter
-            HorizontalContentAlignment="Center"
-            VerticalContentAlignment="Center"
-            Background="Transparent"
-            Content="{TemplateBinding Content}"
-            ContentTemplate="{TemplateBinding ContentTemplate}"
-            Foreground="{TemplateBinding Foreground}" />
-      </ControlTemplate>
-    </Setter>
-  </Style>
-  <Style Selector="Button.popup-logout:pointerover">
-    <Setter Property="Foreground" Value="{StaticResource Brush.Danger}" />
-  </Style>
   <Style Selector="Button.popup-nav">
-    <Setter Property="Padding" Value="12,10" />
+    <Setter Property="Padding" Value="8,6" />
+    <Setter Property="FontSize" Value="12" />
     <Setter Property="HorizontalAlignment" Value="Stretch" />
     <Setter Property="HorizontalContentAlignment" Value="Left" />
     <Setter Property="Background" Value="Transparent" />
@@ -318,26 +308,155 @@
     </Setter>
   </Style>
   <Style Selector="Button.popup-nav:pointerover">
-    <Setter Property="Background" Value="{DynamicResource Brush.Surface.Secondary}" />
+    <Setter Property="Background" Value="Transparent" />
     <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
   </Style>
-  <Style Selector="Button.popup-nav.active">
-    <Setter Property="Background" Value="{StaticResource Brush.Brand.Soft}" />
-    <Setter Property="Foreground" Value="{StaticResource Brush.Brand}" />
+  <Style Selector="Button.popup-nav:pressed">
+    <Setter Property="RenderTransform" Value="scale(1)" />
   </Style>
-  <Style Selector="MenuFlyoutPresenter.category-flyout">
-    <Setter Property="MinWidth" Value="178" />
-    <Setter Property="Padding" Value="6" />
+  <Style Selector="Button.popup-nav:pressed /template/ ContentPresenter">
+    <Setter Property="RenderTransform" Value="scale(1)" />
+  </Style>
+  <Style Selector="Button.popup-nav.active">
+    <Setter Property="Background" Value="{DynamicResource Brush.TopBar.Accent.Soft}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TopBar.Accent}" />
+  </Style>
+  <Style Selector="Button.popup-nav.active:pointerover">
+    <Setter Property="Background" Value="{DynamicResource Brush.TopBar.Accent.Soft}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TopBar.Accent}" />
+  </Style>
+  <Style Selector="Button.popup-nav.logout:pointerover">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+  </Style>
+  <Style Selector="Border.profile-header-card">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface.Secondary}" />
+    <Setter Property="CornerRadius" Value="10" />
+  </Style>
+  <Style Selector="Border.category-menu-popup">
+    <Setter Property="Opacity" Value="0" />
+    <Setter Property="RenderTransform" Value="translateY(-8px) scale(0.99)" />
+    <Setter Property="RenderTransformOrigin" Value="50%,0%" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.18" />
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18">
+          <TransformOperationsTransition.Easing>
+            <CubicEaseOut />
+          </TransformOperationsTransition.Easing>
+        </TransformOperationsTransition>
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Border.category-menu-popup.open">
+    <Setter Property="Opacity" Value="1" />
+    <Setter Property="RenderTransform" Value="translateY(0px) scale(1)" />
+  </Style>
+  <Style Selector="Border.category-mega-menu">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface.Elevated}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="18" />
+    <Setter Property="BoxShadow" Value="0 24 72 0 #66000000" />
+  </Style>
+  <Style Selector="Button.mega-menu-item">
+    <Setter Property="MinHeight" Value="30" />
+    <Setter Property="Padding" Value="8,5" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="Normal" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Foreground" Duration="0:0:0.14" />
+      </Transitions>
+    </Setter>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <ContentPresenter
+            Padding="{TemplateBinding Padding}"
+            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+            VerticalContentAlignment="Center"
+            Background="Transparent"
+            Content="{TemplateBinding Content}"
+            ContentTemplate="{TemplateBinding ContentTemplate}"
+            Foreground="{TemplateBinding Foreground}" />
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="Button.mega-menu-item:pointerover">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+  </Style>
+  <Style Selector="Border.mega-menu-header">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface.Secondary}" />
+    <Setter Property="CornerRadius" Value="12" />
+  </Style>
+  <Style Selector="Button.mega-menu-action">
+    <Setter Property="MinHeight" Value="36" />
+    <Setter Property="Padding" Value="12,7" />
     <Setter Property="Background" Value="{DynamicResource Brush.Surface.Elevated}" />
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Subtle}" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="14" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Background" Duration="0:0:0.16" />
+        <BrushTransition Property="BorderBrush" Duration="0:0:0.16" />
+        <BrushTransition Property="Foreground" Duration="0:0:0.16" />
+      </Transitions>
+    </Setter>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <ContentPresenter
+            Padding="{TemplateBinding Padding}"
+            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+            Background="{TemplateBinding Background}"
+            BorderBrush="{TemplateBinding BorderBrush}"
+            BorderThickness="{TemplateBinding BorderThickness}"
+            Content="{TemplateBinding Content}"
+            ContentTemplate="{TemplateBinding ContentTemplate}"
+            CornerRadius="{TemplateBinding CornerRadius}"
+            Foreground="{TemplateBinding Foreground}" />
+      </ControlTemplate>
+    </Setter>
   </Style>
-  <Style Selector="MenuFlyoutPresenter.category-flyout MenuItem">
-    <Setter Property="MinHeight" Value="38" />
-    <Setter Property="Padding" Value="12,8" />
-    <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
-    <Setter Property="FontSize" Value="13" />
+  <Style Selector="Button.mega-menu-action:pointerover">
+    <Setter Property="Background" Value="{DynamicResource Brush.TopBar.Accent.Soft}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.TopBar.Accent.Soft}" />
+  </Style>
+  <Style Selector="Button.mega-menu-action.contrast">
+    <Setter Property="Background" Value="{DynamicResource Brush.TopBar.Accent}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.TopBar.Accent}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnContrast}" />
+  </Style>
+  <Style Selector="Button.mega-menu-action.contrast:pointerover">
+    <Setter Property="Background" Value="{DynamicResource Brush.Action.Contrast.Hover}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Action.Contrast.Hover}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnContrast}" />
+  </Style>
+  <Style Selector="Button.mega-menu-action.contrast:pressed">
+    <Setter Property="Background" Value="{DynamicResource Brush.Action.Contrast.Pressed}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Action.Contrast.Pressed}" />
+  </Style>
+  <Style Selector="TextBlock.mega-menu-action-arrow">
+    <Setter Property="RenderTransform" Value="translateX(0px)" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.16" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Button.mega-menu-action:pointerover TextBlock.mega-menu-action-arrow">
+    <Setter Property="RenderTransform" Value="translateX(2px)" />
   </Style>
   <Style Selector="Button.media-card">
     <Setter Property="Padding" Value="0" />
@@ -706,7 +825,47 @@
     <Setter Property="Opacity" Value="1" />
   </Style>
   <Style Selector="Image.login-fox-logo">
-    <Setter Property="RenderTransform" Value="translateX(-92px)" />
+    <Setter Property="RenderTransform" Value="translate(-92px, -227px)" />
+    <Setter Property="RenderTransformOrigin" Value="50%,50%" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.38">
+          <TransformOperationsTransition.Easing>
+            <CubicEaseInOut />
+          </TransformOperationsTransition.Easing>
+        </TransformOperationsTransition>
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Image.login-fox-logo.centered">
+    <Setter Property="RenderTransform" Value="translate(0px, 0px)" />
+  </Style>
+  <Style Selector="Image.login-fox-logo.motion-suppressed">
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="StackPanel.login-dismissable, Button.login-footer-item">
+    <Setter Property="Opacity" Value="1" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.28">
+          <DoubleTransition.Easing>
+            <CubicEaseOut />
+          </DoubleTransition.Easing>
+        </DoubleTransition>
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="StackPanel.login-dismissable.dismissed, Button.login-footer-item.dismissed">
+    <Setter Property="Opacity" Value="0" />
+    <Setter Property="IsHitTestVisible" Value="False" />
+  </Style>
+  <Style Selector="Image.startup-loading-logo.handoff">
+    <Setter Property="Opacity" Value="0" />
   </Style>
   <Style Selector="StackPanel.login-button-idle, StackPanel.login-button-busy">
     <Setter Property="Transitions">
@@ -743,6 +902,21 @@
       </Animation>
     </Style.Animations>
   </Style>
+  <Style Selector="TextBlock.startup-spinner">
+    <Setter Property="Opacity" Value="0" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.28">
+          <DoubleTransition.Easing>
+            <CubicEaseOut />
+          </DoubleTransition.Easing>
+        </DoubleTransition>
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="TextBlock.startup-spinner.visible">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
 
   <Style Selector="Border.card">
     <Setter Property="Background" Value="{DynamicResource Brush.Surface.Primary}" />
@@ -757,6 +931,15 @@
     <Setter Property="CornerRadius" Value="{StaticResource Radius.Island}" />
     <Setter Property="BoxShadow" Value="0 14 38 0 #26000000" />
   </Style>
+  <Style Selector="Border.island.top-island">
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+  </Style>
+  <Style Selector="Border.top-island-shadow">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface.Elevated}" />
+    <Setter Property="CornerRadius" Value="{StaticResource Radius.Island}" />
+    <Setter Property="BoxShadow" Value="0 14 38 0 #26000000" />
+  </Style>
   <Style Selector="Border.dialog">
     <Setter Property="Background" Value="{DynamicResource Brush.Surface.Elevated}" />
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Strong}" />
@@ -766,17 +949,20 @@
   </Style>
   <Style Selector="Border.profile-popup">
     <Setter Property="Opacity" Value="0" />
-    <Setter Property="RenderTransform" Value="translateY(-10px) scale(0.98)" />
-    <Setter Property="RenderTransformOrigin" Value="100%,0%" />
+    <Setter Property="RenderTransform" Value="translateY(-8px) scale(0.95)" />
+    <Setter Property="RenderTransformOrigin" Value="50%,0%" />
     <Setter Property="Background" Value="{DynamicResource Brush.Surface.Elevated}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Subtle}" />
-    <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="22" />
-    <Setter Property="BoxShadow" Value="0 18 52 0 #52000000" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="14" />
+    <Setter Property="BoxShadow" Value="0 14 38 0 #42000000" />
     <Setter Property="Transitions">
       <Transitions>
         <DoubleTransition Property="Opacity" Duration="0:0:0.18" />
-        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18" />
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.2">
+          <TransformOperationsTransition.Easing>
+            <CubicEaseOut />
+          </TransformOperationsTransition.Easing>
+        </TransformOperationsTransition>
       </Transitions>
     </Setter>
   </Style>
@@ -788,7 +974,7 @@
     <Setter Property="Opacity" Value="0" />
     <Setter Property="Transitions">
       <Transitions>
-        <DoubleTransition Property="Opacity" Duration="0:0:0.24">
+        <DoubleTransition Property="Opacity" Duration="0:0:0.32">
           <DoubleTransition.Easing>
             <CubicEaseOut />
           </DoubleTransition.Easing>

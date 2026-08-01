@@ -8,6 +8,8 @@ namespace Rezui.Transitions;
 
 public sealed class SoftSlideFadeTransition : IPageTransition
 {
+    private readonly SemaphoreSlim _transitionGate = new(1, 1);
+
     private static readonly Easing MotionEasing = new SplineEasing
     {
         X1 = 0.22,
@@ -30,6 +32,8 @@ public sealed class SoftSlideFadeTransition : IPageTransition
         bool forward,
         CancellationToken cancellationToken)
     {
+        await _transitionGate.WaitAsync(cancellationToken);
+
         var direction = forward ? 1d : -1d;
         var animations = new List<Task>(4);
         var fromTransform = from?.RenderTransform;
@@ -97,6 +101,8 @@ public sealed class SoftSlideFadeTransition : IPageTransition
                 to.RenderTransform = toTransform;
                 to.Opacity = toOpacity;
             }
+
+            _transitionGate.Release();
         }
     }
 
