@@ -318,86 +318,218 @@
           Background="{DynamicResource Brush.App.Background}">
         <!-- Home -->
         <ScrollViewer
+            Classes="smooth-scroll home-page"
+            Classes.entering="{Binding IsHomeEntering}"
+            Classes.leaving="{Binding IsHomeLeaving}"
             IsVisible="{Binding IsHomeVisible}">
           <StackPanel
               MaxWidth="1120"
               Margin="28,126,28,56"
               HorizontalAlignment="Center"
+              Classes="home-content"
               Spacing="32">
+            <StackPanel.RenderTransform>
+              <TransformGroup>
+                <ScaleTransform />
+                <TranslateTransform />
+              </TransformGroup>
+            </StackPanel.RenderTransform>
             <Border
-                MinHeight="250"
-                Padding="36"
+                Height="284"
                 Background="{DynamicResource Brush.Surface.Hero}"
-                BorderBrush="{DynamicResource Brush.Border.Subtle}"
-                BorderThickness="1"
-                CornerRadius="24">
-              <Grid ColumnDefinitions="*,300">
-                <StackPanel MaxWidth="680" VerticalAlignment="Center" Spacing="16">
-                  <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBlock
-                        Classes="symbol filled"
-                        Foreground="{StaticResource Brush.Brand}"
-                        Text="auto_awesome" />
-                    <TextBlock
-                        VerticalAlignment="Center"
-                        Classes="eyebrow"
-                        Foreground="{StaticResource Brush.Brand}"
-                        Text="ВАША КИНОБИБЛИОТЕКА" />
-                  </StackPanel>
-                  <TextBlock
-                      Classes="display"
-                      Text="Смотреть проще&#x0a;Возвращаться приятнее"
-                      TextWrapping="Wrap" />
+                Classes="home-hero"
+                CornerRadius="24"
+                ClipToBounds="True"
+                IsVisible="{Binding HasContinueWatchingHero}">
+              <Border.RenderTransform>
+                <TransformGroup>
+                  <ScaleTransform />
+                  <TranslateTransform />
+                </TransformGroup>
+              </Border.RenderTransform>
+              <ContentControl
+                  FontFamily="{StaticResource Font.Body}"
+                  HorizontalContentAlignment="Stretch"
+                  VerticalContentAlignment="Stretch"
+                  Content="{Binding ContinueWatchingHero}">
+                <ContentControl.ContentTemplate>
+                  <DataTemplate x:DataType="models:ContinueWatchingHeroItem">
+                    <Grid Height="284" ClipToBounds="True">
+                      <Image
+                          Classes="continue-hero-background"
+                          Opacity="0.96"
+                          RenderTransformOrigin="50%,50%"
+                          Source="{Binding ImageSource^}"
+                          Stretch="UniformToFill"
+                          AttachedToVisualTree="ContinueBackground_OnAttachedToVisualTree"
+                          DetachedFromVisualTree="ContinueBackground_OnDetachedFromVisualTree">
+                        <Image.RenderTransform>
+                          <TransformGroup>
+                            <ScaleTransform ScaleX="1.18" ScaleY="1.18" />
+                            <TranslateTransform />
+                          </TransformGroup>
+                        </Image.RenderTransform>
+                        <Image.Effect>
+                          <BlurEffect Radius="46" />
+                        </Image.Effect>
+                      </Image>
+                      <Border Background="#B8111114" />
+                      <Border>
+                        <Border.Background>
+                          <LinearGradientBrush StartPoint="0%,50%" EndPoint="100%,50%">
+                            <GradientStop Color="#F2111114" Offset="0" />
+                            <GradientStop Color="#D9111114" Offset="0.52" />
+                            <GradientStop Color="#9C111114" Offset="1" />
+                          </LinearGradientBrush>
+                        </Border.Background>
+                      </Border>
+
+                      <Grid Margin="28" ColumnDefinitions="138,*">
+                        <Border
+                            Width="138"
+                            Height="208"
+                            VerticalAlignment="Center"
+                            Background="#2FFFFFFF"
+                            CornerRadius="16"
+                            BoxShadow="0 16 36 0 #66000000"
+                            ClipToBounds="True">
+                          <Grid>
+                            <TextBlock
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Classes="symbol"
+                                Foreground="#BFFFFFFF"
+                                FontSize="30"
+                                Text="movie" />
+                            <Image Source="{Binding ImageSource^}" Stretch="UniformToFill" />
+                          </Grid>
+                        </Border>
+
+                        <Grid
+                            Grid.Column="1"
+                            Margin="24,10,0,10"
+                            RowDefinitions="Auto,*,Auto">
+                          <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Spacing="8">
+                              <TextBlock
+                                  MaxHeight="82"
+                                  Foreground="White"
+                                  FontSize="34"
+                                  FontWeight="SemiBold"
+                                  LineHeight="40"
+                                  SizeChanged="ContinueTitle_OnSizeChanged"
+                                  Text="{Binding Title}"
+                                  TextTrimming="CharacterEllipsis"
+                                  TextWrapping="Wrap" />
+                              <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Border
+                                    Padding="8,4"
+                                    Background="#24FFFFFF"
+                                    CornerRadius="999">
+                                  <TextBlock
+                                      Foreground="White"
+                                      FontSize="11"
+                                      FontWeight="SemiBold"
+                                      Text="{Binding Category}" />
+                                </Border>
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    Foreground="#BFFFFFFF"
+                                    FontSize="12"
+                                    IsVisible="{Binding HasDetails}"
+                                    Text="{Binding Details}" />
+                              </StackPanel>
+                            </StackPanel>
+                            <TextBlock
+                                Grid.Column="1"
+                                Margin="16,3,0,0"
+                                VerticalAlignment="Top"
+                                Foreground="#BFFFFFFF"
+                                FontSize="11"
+                                Text="{Binding LastViewedLabel}" />
+                          </Grid>
+
+                          <Grid
+                              Grid.Row="2"
+                              HorizontalAlignment="Left"
+                              ColumnDefinitions="Auto,Auto">
+                            <Button
+                                Classes="continue-hero-action"
+                                Command="{Binding OpenCommand}"
+                                AutomationProperties.Name="Продолжить просмотр"
+                                ToolTip.Tip="Продолжить просмотр">
+                              <TextBlock
+                                  Classes="symbol filled"
+                                  FontSize="27"
+                                  Text="play_arrow" />
+                            </Button>
+                            <StackPanel
+                                Grid.Column="1"
+                                MaxWidth="380"
+                                Margin="14,0,0,0"
+                                VerticalAlignment="Center"
+                                Spacing="2">
+                              <TextBlock
+                                  Foreground="#AFFFFFFF"
+                                  FontSize="10"
+                                  FontWeight="SemiBold"
+                                  Text="Продолжить просмотр" />
+                              <TextBlock
+                                  MaxWidth="290"
+                                  Foreground="White"
+                                  FontSize="12"
+                                  FontWeight="SemiBold"
+                                  Text="{Binding PlaybackPosition}"
+                                  TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                          </Grid>
+                        </Grid>
+                      </Grid>
+                    </Grid>
+                  </DataTemplate>
+                </ContentControl.ContentTemplate>
+              </ContentControl>
+            </Border>
+
+            <Border
+                MinHeight="220"
+                Padding="32"
+                Background="{DynamicResource Brush.Surface.Hero}"
+                Classes="home-hero"
+                CornerRadius="24"
+                IsVisible="{Binding !HasContinueWatchingHero}">
+              <Border.RenderTransform>
+                <TransformGroup>
+                  <ScaleTransform />
+                  <TranslateTransform />
+                </TransformGroup>
+              </Border.RenderTransform>
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel VerticalAlignment="Center" Spacing="10">
+                  <TextBlock Classes="eyebrow" Text="ПРОДОЛЖИТЬ ПРОСМОТР" />
+                  <TextBlock Classes="h1" Text="Здесь появится последний тайтл" />
                   <TextBlock
                       MaxWidth="620"
                       Classes="muted"
-                      FontSize="15"
-                      LineHeight="22"
-                      Text="Поиск, сохранённые позиции, закладки и профиль HDRezka — в одном спокойном десктопном пространстве"
+                      Text="Начните просмотр фильма или сериала — сохранённая позиция появится на главной."
                       TextWrapping="Wrap" />
-                  <Grid MaxWidth="610" ColumnDefinitions="*,Auto">
-                    <TextBox
-                        VerticalContentAlignment="Center"
-                        PlaceholderText="Фильм, сериал или аниме"
-                        Text="{Binding SearchQuery}">
-                      <TextBox.KeyBindings>
-                        <KeyBinding Gesture="Enter" Command="{Binding SearchCommand}" />
-                      </TextBox.KeyBindings>
-                    </TextBox>
-                    <Button
-                        Grid.Column="1"
-                        Margin="10,0,0,0"
-                        Classes="primary"
-                        Command="{Binding SearchCommand}">
-                      <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBlock Classes="symbol" Text="search" />
-                        <TextBlock Text="Найти" />
-                      </StackPanel>
-                    </Button>
-                  </Grid>
                 </StackPanel>
-
-                <Grid Grid.Column="1">
-                  <Ellipse
-                      Width="230"
-                      Height="230"
-                      Fill="{StaticResource Brush.Brand.Soft}" />
-                  <Ellipse
-                      Width="152"
-                      Height="152"
-                      Fill="{StaticResource Brush.Brand}" />
-                  <TextBlock
-                      HorizontalAlignment="Center"
-                      VerticalAlignment="Center"
-                      Classes="symbol filled"
-                      Foreground="White"
-                      FontSize="72"
-                      Text="play_arrow" />
-                </Grid>
+                <Button
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    Classes="login-primary"
+                    Command="{Binding QuickSearchCommand}"
+                    CommandParameter="новинки">
+                  <StackPanel Orientation="Horizontal" Spacing="7">
+                    <TextBlock Classes="symbol" FontSize="18" Text="search" />
+                    <TextBlock Text="Найти тайтл" />
+                  </StackPanel>
+                </Button>
               </Grid>
             </Border>
 
-            <StackPanel Spacing="14">
+            <StackPanel Classes="home-quick" Spacing="14">
+              <StackPanel.RenderTransform><TranslateTransform /></StackPanel.RenderTransform>
               <TextBlock Classes="h2" Text="Быстрый выбор" />
               <ItemsControl ItemsSource="{Binding QuickSearches}">
                 <ItemsControl.ItemsPanel>
@@ -422,7 +554,8 @@
               </ItemsControl>
             </StackPanel>
 
-            <StackPanel Spacing="14">
+            <StackPanel Classes="home-recent" Spacing="14">
+              <StackPanel.RenderTransform><TranslateTransform /></StackPanel.RenderTransform>
               <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Classes="h2" Text="Недавно открывали" />
                 <Button
@@ -463,6 +596,7 @@
 
         <!-- Account library -->
         <ScrollViewer
+            Classes="smooth-scroll"
             IsVisible="{Binding IsLibraryVisible}">
           <StackPanel
               MaxWidth="1120"
@@ -544,6 +678,7 @@
 
         <!-- Settings -->
         <ScrollViewer
+            Classes="smooth-scroll"
             IsVisible="{Binding IsSettingsVisible}">
           <StackPanel
               MaxWidth="920"
@@ -639,122 +774,681 @@
 
         <!-- Media details -->
         <ScrollViewer
+            x:Name="DetailsScrollViewer"
+            Classes="smooth-scroll details-page"
+            Classes.entering="{Binding IsDetailsEntering}"
+            Classes.leaving="{Binding IsDetailsLeaving}"
+            Classes.loading="{Binding IsDetailsContentLoading}"
+            HorizontalScrollBarVisibility="Disabled"
+            IsHitTestVisible="{Binding !IsDetailsContentLoading}"
             IsVisible="{Binding IsDetailsVisible}">
-          <Grid
-              MaxWidth="1120"
-              Margin="28,126,28,56"
-              HorizontalAlignment="Center"
-              ColumnDefinitions="280,*">
-            <StackPanel Spacing="14">
+          <StackPanel Spacing="0">
+            <Grid Height="620" ClipToBounds="False">
               <Border
-                  Height="400"
-                  Background="{DynamicResource Brush.Surface.Secondary}"
-                  CornerRadius="18"
-                  ClipToBounds="True">
+                  Classes="details-hero-shadow"
+                  Classes.visible="{Binding IsDetailsHeroSurfaceVisible}"
+                  BoxShadow="0 22 54 0 #5C000000"
+                  IsHitTestVisible="False" />
+              <Border Classes="details-hero">
+              <Border ClipToBounds="True">
                 <Grid>
-                  <TextBlock
+                <Border
+                    Classes="details-hero-base"
+                    Classes.visible="{Binding IsDetailsHeroSurfaceVisible}"
+                    Background="#FF111114" />
+                <Grid
+                    Classes="details-hero-backdrop"
+                    Classes.ready="{Binding IsDetailsHeroBackgroundReady}">
+                  <Image
+                      Classes="details-hero-background"
+                      Margin="-56"
+                      RenderTransformOrigin="50%,50%"
+                      Source="{Binding DetailsImageSource^}"
+                      Stretch="UniformToFill">
+                    <Image.Effect>
+                      <BlurEffect Radius="44" />
+                    </Image.Effect>
+                    <Image.RenderTransform>
+                      <ScaleTransform />
+                    </Image.RenderTransform>
+                  </Image>
+                  <Image
+                      Classes="details-hero-background details-hero-image-upgrade"
+                      Classes.ready="{Binding IsDetailsHeroImageUpgradeReady}"
+                      Margin="-56"
+                      RenderTransformOrigin="50%,50%"
+                      Source="{Binding DetailsHeroUpgradeImageSource^}"
+                      Stretch="UniformToFill">
+                    <Image.Effect>
+                      <BlurEffect Radius="44" />
+                    </Image.Effect>
+                    <Image.RenderTransform>
+                      <ScaleTransform />
+                    </Image.RenderTransform>
+                  </Image>
+                  <Border
+                      Classes="details-hero-scrim"
+                      Background="#A8111114"
+                      Opacity="1" />
+                </Grid>
+
+                <StackPanel
+                    Width="720"
+                    Margin="28,94,28,28"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Classes="details-hero-content"
+                    Classes.watch-ready="{Binding CanWatchDetails}"
+                    Spacing="7">
+                  <Border
+                      Width="148"
+                      Height="212"
                       HorizontalAlignment="Center"
-                      VerticalAlignment="Center"
-                      Classes="symbol"
-                      Foreground="{DynamicResource Brush.Text.Secondary}"
-                      FontSize="48"
-                      Text="movie" />
-                  <Image Source="{Binding DetailsImageSource^}" Stretch="UniformToFill" />
+                      Background="#40111114"
+                      BoxShadow="0 12 34 0 #66000000"
+                      Classes="details-hero-poster"
+                      CornerRadius="15"
+                      ClipToBounds="True"
+                      Opacity="1">
+                    <Border.RenderTransform>
+                      <TransformGroup>
+                        <ScaleTransform />
+                        <TranslateTransform />
+                      </TransformGroup>
+                    </Border.RenderTransform>
+                    <Grid>
+                      <Image
+                          Source="{Binding DetailsImageSource^}"
+                          Stretch="UniformToFill" />
+                      <Image
+                          Classes="details-hero-poster-upgrade"
+                          Classes.ready="{Binding IsDetailsHeroImageUpgradeReady}"
+                          Source="{Binding DetailsHeroUpgradeImageSource^}"
+                          Stretch="UniformToFill" />
+                    </Grid>
+                  </Border>
+                  <TextBlock
+                      Width="720"
+                      HorizontalAlignment="Center"
+                      Classes="details-hero-title"
+                      Foreground="White"
+                      FontSize="38"
+                      FontWeight="SemiBold"
+                      LineHeight="42"
+                      MaxLines="3"
+                      Opacity="1"
+                      Text="{Binding DetailsTitle}"
+                      TextAlignment="Center"
+                      TextTrimming="CharacterEllipsis"
+                      TextWrapping="Wrap">
+                    <TextBlock.RenderTransform><TranslateTransform /></TextBlock.RenderTransform>
+                  </TextBlock>
+                  <Grid Width="720" Height="36" HorizontalAlignment="Center">
+                    <TextBlock
+                        Width="720"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Bottom"
+                        Classes="details-hero-original"
+                        Foreground="#AFFFFFFF"
+                        FontSize="13"
+                        LineHeight="18"
+                        MaxLines="2"
+                        Opacity="1"
+                        Text="{Binding DetailsOriginalTitle}"
+                        TextAlignment="Center"
+                        TextTrimming="CharacterEllipsis"
+                        TextWrapping="Wrap">
+                      <TextBlock.RenderTransform><TranslateTransform /></TextBlock.RenderTransform>
+                    </TextBlock>
+                  </Grid>
+                  <WrapPanel
+                      Height="18"
+                      HorizontalAlignment="Center"
+                      Classes="details-hero-meta"
+                      Opacity="1">
+                    <WrapPanel.RenderTransform><TranslateTransform /></WrapPanel.RenderTransform>
+                    <TextBlock
+                        Margin="7,0"
+                        Foreground="White"
+                        FontSize="12"
+                        FontWeight="SemiBold"
+                        Text="{Binding DetailsRating}" />
+                    <TextBlock
+                        Margin="7,0"
+                        Foreground="#CFFFFFFF"
+                        FontSize="12"
+                        Text="{Binding DetailsMeta}" />
+                  </WrapPanel>
+                  <Border
+                      Width="188"
+                      Height="46"
+                      Margin="0,18,0,0"
+                      HorizontalAlignment="Center"
+                      Classes="details-hero-action"
+                      Opacity="1">
+                    <Border.RenderTransform>
+                      <TransformGroup>
+                        <ScaleTransform />
+                        <TranslateTransform />
+                      </TransformGroup>
+                    </Border.RenderTransform>
+                    <Button
+                        Width="188"
+                        Height="46"
+                        Classes="details-watch"
+                        Classes.available="{Binding CanWatchDetails}"
+                        Command="{Binding OpenPlayerCommand}">
+                      <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            Classes="symbol filled"
+                            FontSize="21"
+                            Text="play_arrow" />
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            LineHeight="21"
+                            Text="Смотреть" />
+                      </StackPanel>
+                    </Button>
+                  </Border>
+                </StackPanel>
                 </Grid>
               </Border>
-              <Border Padding="16" Classes="card">
-                <StackPanel Spacing="5">
-                  <TextBlock FontWeight="SemiBold" Text="{Binding DetailsRating}" />
-                  <TextBlock
-                      Classes="muted"
-                      FontSize="12"
-                      Text="{Binding DetailsMeta}"
-                      TextWrapping="Wrap" />
-                </StackPanel>
-              </Border>
-            </StackPanel>
+            </Border>
+            </Grid>
 
-            <StackPanel Grid.Column="1" Margin="32,0,0,0" Spacing="20">
-              <Button
-                  HorizontalAlignment="Left"
-                  Padding="12,7"
-                  Classes="ghost"
-                  Command="{Binding ShowLibraryCommand}">
-                <StackPanel Orientation="Horizontal" Spacing="7">
-                  <TextBlock Classes="symbol" Text="arrow_back" />
-                  <TextBlock Text="Библиотека" />
-                </StackPanel>
-              </Button>
-              <StackPanel Spacing="4">
-                <TextBlock Classes="h1" Text="{Binding DetailsTitle}" TextWrapping="Wrap" />
-                <TextBlock
-                    Classes="muted"
-                    FontSize="15"
-                    Text="{Binding DetailsOriginalTitle}" />
-              </StackPanel>
-              <TextBlock
-                  MaxWidth="780"
-                  FontSize="15"
-                  LineHeight="23"
-                  Text="{Binding DetailsDescription}"
-                  TextWrapping="Wrap" />
-
-              <Border Padding="22" Classes="card">
-                <StackPanel Spacing="16">
-                  <TextBlock Classes="h2" Text="Параметры просмотра" />
-                  <Grid ColumnDefinitions="*,*" ColumnSpacing="14">
-                    <StackPanel Spacing="7">
-                      <TextBlock Classes="eyebrow" Text="ОЗВУЧКА" />
-                      <ComboBox
-                          ItemsSource="{Binding Translations}"
-                          SelectedItem="{Binding SelectedTranslation}">
-                        <ComboBox.ItemTemplate>
-                          <DataTemplate x:DataType="models:TranslationItem">
-                            <TextBlock Text="{Binding DisplayName}" />
-                          </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                      </ComboBox>
-                    </StackPanel>
-                    <Grid
-                        Grid.Column="1"
-                        ColumnDefinitions="*,*"
-                        ColumnSpacing="10"
-                        IsVisible="{Binding IsSeries}">
-                      <StackPanel Spacing="7">
-                        <TextBlock Classes="eyebrow" Text="СЕЗОН" />
-                        <ComboBox ItemsSource="{Binding Seasons}" SelectedItem="{Binding SelectedSeason}">
-                          <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="models:ChoiceItem">
-                              <TextBlock Text="{Binding Title}" />
-                            </DataTemplate>
-                          </ComboBox.ItemTemplate>
-                        </ComboBox>
-                      </StackPanel>
-                      <StackPanel Grid.Column="1" Spacing="7">
-                        <TextBlock Classes="eyebrow" Text="СЕРИЯ" />
-                        <ComboBox ItemsSource="{Binding Episodes}" SelectedItem="{Binding SelectedEpisode}">
-                          <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="models:ChoiceItem">
-                              <TextBlock Text="{Binding Title}" />
-                            </DataTemplate>
-                          </ComboBox.ItemTemplate>
-                        </ComboBox>
-                      </StackPanel>
-                    </Grid>
+            <Grid
+                MaxWidth="1120"
+                Margin="28,28,28,64"
+                HorizontalAlignment="Stretch"
+                Classes="details-skeleton"
+                ColumnDefinitions="1.5*,*"
+                ColumnSpacing="22"
+                RowDefinitions="Auto,Auto"
+                IsVisible="{Binding IsDetailsContentLoading}">
+              <Border Height="220" Padding="24" Classes="details-skeleton-card">
+                <StackPanel Spacing="15">
+                  <Border Width="176" Height="24" HorizontalAlignment="Left" Classes="details-skeleton-block" />
+                  <Border Height="14" Classes="details-skeleton-block second" />
+                  <Border Height="14" Classes="details-skeleton-block third" />
+                  <Grid ColumnDefinitions="4*,*">
+                    <Border Height="14" Classes="details-skeleton-block" />
                   </Grid>
-                  <Button
-                      HorizontalAlignment="Left"
-                      Classes="primary"
-                      Command="{Binding ResolvePlaybackCommand}">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                      <TextBlock Classes="symbol filled" Text="play_arrow" />
-                      <TextBlock Text="Смотреть" />
-                    </StackPanel>
-                  </Button>
                 </StackPanel>
               </Border>
+              <Border Grid.Column="1" Height="220" Padding="24" Classes="details-skeleton-card">
+                <StackPanel Spacing="15">
+                  <Border Width="142" Height="24" HorizontalAlignment="Left" Classes="details-skeleton-block second" />
+                  <Grid ColumnDefinitions="112,*" ColumnSpacing="18">
+                    <Border Height="12" Classes="details-skeleton-block third" />
+                    <Border Grid.Column="1" Height="12" Classes="details-skeleton-block" />
+                  </Grid>
+                  <Grid ColumnDefinitions="112,*" ColumnSpacing="18">
+                    <Border Height="12" Classes="details-skeleton-block second" />
+                    <Border Grid.Column="1" Height="12" Classes="details-skeleton-block third" />
+                  </Grid>
+                  <Grid ColumnDefinitions="112,*" ColumnSpacing="18">
+                    <Border Height="12" Classes="details-skeleton-block" />
+                    <Border Grid.Column="1" Height="12" Classes="details-skeleton-block second" />
+                  </Grid>
+                </StackPanel>
+              </Border>
+              <TextBlock
+                  Grid.Row="1"
+                  Grid.ColumnSpan="2"
+                  Margin="0,16,0,0"
+                  HorizontalAlignment="Center"
+                  Classes="muted"
+                  FontSize="12"
+                  Text="{Binding DetailsLoadingStatus}" />
+            </Grid>
+
+            <Border
+                MaxWidth="1120"
+                Margin="28,28,28,64"
+                Padding="32"
+                HorizontalAlignment="Stretch"
+                Classes="card details-card details-load-error"
+                IsVisible="{Binding IsDetailsContentLoadFailed}">
+              <StackPanel HorizontalAlignment="Center" Spacing="10">
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    Classes="symbol"
+                    Foreground="{DynamicResource Brush.Text.Secondary}"
+                    FontSize="30"
+                    Text="cloud_off" />
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    Classes="h2"
+                    Text="Не удалось загрузить данные тайтла" />
+                <TextBlock
+                    MaxWidth="620"
+                    HorizontalAlignment="Center"
+                    Classes="muted"
+                    Text="{Binding DetailsContentError}"
+                    TextAlignment="Center"
+                    TextWrapping="Wrap" />
+                <Button
+                    Margin="0,8,0,0"
+                    Classes="login-primary details-retry"
+                    Command="{Binding RetryDetailsContentCommand}">
+                  <StackPanel Orientation="Horizontal" Spacing="7">
+                    <TextBlock Classes="symbol" FontSize="18" Text="refresh" />
+                    <TextBlock Text="Попробовать снова" />
+                  </StackPanel>
+                </Button>
+              </StackPanel>
+            </Border>
+
+            <StackPanel
+                MaxWidth="1120"
+                Margin="28,28,28,64"
+                HorizontalAlignment="Stretch"
+                Classes="details-body"
+                IsVisible="{Binding IsDetailsContentReady}"
+                Opacity="1"
+                Spacing="32">
+              <StackPanel.RenderTransform><TranslateTransform /></StackPanel.RenderTransform>
+              <Grid ColumnDefinitions="1.5*,*" ColumnSpacing="22">
+                <Border Padding="24" Classes="card details-card">
+                  <StackPanel Spacing="12">
+                    <TextBlock Classes="h2" Text="Описание" />
+                    <TextBlock
+                        FontSize="15"
+                        LineHeight="23"
+                        Text="{Binding DetailsDescription}"
+                        TextWrapping="Wrap" />
+                  </StackPanel>
+                </Border>
+
+                <Border Grid.Column="1" Padding="24" Classes="card details-card">
+                  <StackPanel Spacing="12">
+                    <TextBlock Classes="h2" Text="Подробности" />
+                    <ItemsControl ItemsSource="{Binding DetailsFacts}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="models:DetailFactItem">
+                          <Grid Margin="0,0,0,10" ColumnDefinitions="120,*">
+                            <TextBlock Classes="muted" FontSize="12" Text="{Binding Label}" />
+                            <TextBlock
+                                Grid.Column="1"
+                                FontSize="12"
+                                IsVisible="{Binding HasPlainValue}"
+                                Text="{Binding Value}"
+                                TextWrapping="Wrap" />
+                            <ItemsControl
+                                Grid.Column="1"
+                                IsVisible="{Binding HasCountries}"
+                                ItemsSource="{Binding Countries}">
+                              <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                              </ItemsControl.ItemsPanel>
+                              <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="models:CountryFlagItem">
+                                  <StackPanel
+                                      Margin="0,0,12,4"
+                                      VerticalAlignment="Center"
+                                      Orientation="Horizontal"
+                                      Spacing="6">
+                                    <Border
+                                        Width="18"
+                                        Height="12"
+                                        VerticalAlignment="Center"
+                                        CornerRadius="2"
+                                        ClipToBounds="True"
+                                        IsVisible="{Binding HasImage}">
+                                      <Image Source="{Binding ImageSource}" Stretch="UniformToFill" />
+                                    </Border>
+                                    <TextBlock
+                                        VerticalAlignment="Center"
+                                        FontSize="12"
+                                        Text="{Binding Name}" />
+                                  </StackPanel>
+                                </DataTemplate>
+                              </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Path
+                                Grid.Column="1"
+                                Width="22"
+                                Height="22"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Center"
+                                AutomationProperties.Name="{Binding Value}"
+                                Data="{Binding AgeIcon}"
+                                Fill="{DynamicResource Brush.Text.Primary}"
+                                IsVisible="{Binding HasAgeIcon}"
+                                Stretch="Uniform"
+                                ToolTip.Tip="{Binding Value}" />
+                          </Grid>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </Border>
+              </Grid>
+
+              <StackPanel IsVisible="{Binding DetailsExternalRatings.Count}" Spacing="12">
+                <TextBlock Classes="h2" Text="Рейтинги" />
+                <ItemsControl
+                    Margin="-18,-18,-18,-28"
+                    ItemsSource="{Binding DetailsExternalRatings}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><WrapPanel Margin="18,18,18,28" /></ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="models:ExternalRatingItem">
+                      <Border
+                          Width="220"
+                          Height="104"
+                          Margin="0,0,12,10"
+                          Padding="14"
+                          Classes="rating-card"
+                          Classes.imdb="{Binding IsImdb}"
+                          Classes.kinopoisk="{Binding IsKinopoisk}"
+                          Classes.worldart="{Binding IsWorldArt}"
+                          Classes.other="{Binding IsOther}">
+                        <Grid ColumnDefinitions="64,*">
+                          <Border
+                              Width="64"
+                              Height="64"
+                              CornerRadius="13"
+                              ClipToBounds="True">
+                            <Grid>
+                              <Image
+                                  IsVisible="{Binding IsImdb}"
+                                  Source="avares://Rezui/Assets/imdb.png"
+                                  Stretch="UniformToFill" />
+                              <Image
+                                  IsVisible="{Binding IsKinopoisk}"
+                                  Source="avares://Rezui/Assets/kinopoisk.png"
+                                  Stretch="UniformToFill" />
+                              <Image
+                                  IsVisible="{Binding IsWorldArt}"
+                                  Source="avares://Rezui/Assets/worldart.png"
+                                  Stretch="UniformToFill" />
+                              <TextBlock
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"
+                                  FontSize="12"
+                                  FontWeight="SemiBold"
+                                  IsVisible="{Binding IsOther}"
+                                  Text="{Binding Source}"
+                                  TextAlignment="Center"
+                                  TextWrapping="Wrap" />
+                            </Grid>
+                          </Border>
+                          <StackPanel Grid.Column="1" Margin="13,0,6,0" VerticalAlignment="Center" Spacing="1">
+                            <TextBlock Classes="rating-source" FontSize="11" Text="{Binding Source}" />
+                            <TextBlock Classes="rating-value" FontSize="27" FontWeight="SemiBold" Text="{Binding Value}" />
+                            <TextBlock Classes="rating-votes" FontSize="10" Text="{Binding Votes}" />
+                          </StackPanel>
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+
+              <StackPanel IsVisible="{Binding DetailsDirectors.Count}" Spacing="12">
+                <TextBlock Classes="h2" Text="Режиссёры" />
+                <ItemsControl
+                    Margin="-18,-18,-18,-28"
+                    ItemsSource="{Binding DetailsDirectors}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><WrapPanel Margin="18,18,18,28" /></ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="models:PersonCardItem">
+                      <Border Width="170" Margin="0,0,12,10" Padding="10" Classes="card details-card">
+                        <Grid ColumnDefinitions="44,*">
+                          <Border Width="44" Height="44" CornerRadius="22" ClipToBounds="True" Background="{DynamicResource Brush.Surface.Secondary}">
+                            <Grid>
+                              <TextBlock
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"
+                                  Classes="symbol filled"
+                                  FontSize="25"
+                                  Foreground="{DynamicResource Brush.Text.Secondary}"
+                                  Text="person" />
+                              <Image Source="{Binding ImageSource^}" Stretch="UniformToFill" />
+                            </Grid>
+                          </Border>
+                          <StackPanel Grid.Column="1" Margin="9,0,0,0" VerticalAlignment="Center">
+                            <TextBlock FontSize="12" FontWeight="SemiBold" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Classes="muted" FontSize="10" Text="{Binding Job}" TextTrimming="CharacterEllipsis" />
+                          </StackPanel>
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+
+              <StackPanel IsVisible="{Binding DetailsCast.Count}" Spacing="12">
+                <TextBlock Classes="h2" Text="В ролях" />
+                <ItemsControl
+                    Margin="-18,-18,-18,-28"
+                    ItemsSource="{Binding DetailsCast}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><WrapPanel Margin="18,18,18,28" /></ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="models:PersonCardItem">
+                      <Border Width="170" Margin="0,0,12,10" Padding="10" Classes="card details-card">
+                        <Grid ColumnDefinitions="44,*">
+                          <Border Width="44" Height="44" CornerRadius="22" ClipToBounds="True" Background="{DynamicResource Brush.Surface.Secondary}">
+                            <Grid>
+                              <TextBlock
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"
+                                  Classes="symbol filled"
+                                  FontSize="25"
+                                  Foreground="{DynamicResource Brush.Text.Secondary}"
+                                  Text="person" />
+                              <Image Source="{Binding ImageSource^}" Stretch="UniformToFill" />
+                            </Grid>
+                          </Border>
+                          <StackPanel Grid.Column="1" Margin="9,0,0,0" VerticalAlignment="Center">
+                            <TextBlock FontSize="12" FontWeight="SemiBold" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Classes="muted" FontSize="10" Text="{Binding Job}" TextTrimming="CharacterEllipsis" />
+                          </StackPanel>
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+
+              <StackPanel IsVisible="{Binding DetailsSchedule.Count}" Spacing="12">
+                <TextBlock Classes="h2" Text="Расписание серий" />
+                <ItemsControl
+                    Margin="-18,-18,-18,-28"
+                    ItemsSource="{Binding DetailsSchedule}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><WrapPanel Margin="18,18,18,28" /></ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="models:ScheduleCardItem">
+                      <Border Width="250" Margin="0,0,12,10" Padding="14" Classes="card details-card">
+                        <StackPanel Spacing="4">
+                          <TextBlock FontSize="11" FontWeight="SemiBold" Text="{Binding EpisodeLabel}" />
+                          <TextBlock FontSize="12" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Classes="muted" FontSize="10" Text="{Binding DateLabel}" />
+                        </StackPanel>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+
+              <ItemsControl
+                  IsVisible="{Binding HasDetailGroups}"
+                  ItemsSource="{Binding DetailsGroups}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <UniformGrid
+                        Columns="{Binding DetailsGroupColumnCount}"
+                        ColumnSpacing="16" />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="models:DetailGroupCardItem">
+                    <Border Padding="20" Classes="card details-card">
+                      <StackPanel Spacing="12">
+                        <TextBlock Classes="h2" Text="{Binding Title}" />
+                        <ItemsControl ItemsSource="{Binding Columns}">
+                          <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                              <UniformGrid
+                                  Columns="{Binding ColumnCount}"
+                                  ColumnSpacing="20" />
+                            </ItemsPanelTemplate>
+                          </ItemsControl.ItemsPanel>
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="models:DetailGroupColumnItem">
+                              <ItemsControl ItemsSource="{Binding Items}">
+                                <ItemsControl.ItemTemplate>
+                                  <DataTemplate>
+                                    <TextBlock
+                                        Margin="0,0,0,7"
+                                        FontSize="12"
+                                        Text="{Binding}"
+                                        TextWrapping="Wrap" />
+                                  </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                              </ItemsControl>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+
+              <StackPanel IsVisible="{Binding DetailsRecommendations.Count}" Spacing="14">
+                <TextBlock Classes="h2" Text="Вам также понравится" />
+                <ItemsControl
+                    Margin="-18,-18,-18,-28"
+                    ItemsSource="{Binding DetailsRecommendations}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><WrapPanel Margin="18,18,18,28" /></ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="models:MediaCardItem">
+                      <Button
+                          Width="174"
+                          Margin="0,0,16,20"
+                          Classes="media-card details-media-card"
+                          Command="{Binding OpenCommand}">
+                        <StackPanel Spacing="10">
+                          <Border
+                              Height="246"
+                              Background="{DynamicResource Brush.Surface.Secondary}"
+                              BoxShadow="0 8 26 0 #1F000000"
+                              CornerRadius="16"
+                              ClipToBounds="True">
+                            <Grid>
+                              <TextBlock
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"
+                                  Classes="symbol"
+                                  Foreground="{DynamicResource Brush.Text.Secondary}"
+                                  Text="movie" />
+                              <Image Source="{Binding ImageSource^}" Stretch="UniformToFill" />
+                              <Border
+                                  Padding="9,5"
+                                  Margin="10"
+                                  HorizontalAlignment="Left"
+                                  VerticalAlignment="Bottom"
+                                  Background="#CC111014"
+                                  CornerRadius="8">
+                                <TextBlock
+                                    Foreground="White"
+                                    FontSize="11"
+                                    FontWeight="SemiBold"
+                                    Text="{Binding Category}" />
+                              </Border>
+                            </Grid>
+                          </Border>
+                          <TextBlock
+                              MaxHeight="44"
+                              FontSize="14"
+                              FontWeight="SemiBold"
+                              Text="{Binding Title}"
+                              TextTrimming="CharacterEllipsis"
+                              TextWrapping="Wrap" />
+                        </StackPanel>
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+
+              <StackPanel Spacing="14">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Classes="h2" Text="Комментарии" />
+                  <TextBlock Grid.Column="1" Classes="muted" FontSize="12" Text="{Binding DetailsComments.Count, StringFormat='{}{0} загружено'}" />
+                </Grid>
+                <ItemsControl ItemsSource="{Binding DetailsComments}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="models:CommentCardItem">
+                      <Border Margin="{Binding Indent}" Padding="14" Classes="comment-card">
+                        <Grid ColumnDefinitions="38,*">
+                          <Border Width="38" Height="38" CornerRadius="19" ClipToBounds="True" Background="{DynamicResource Brush.Surface.Secondary}">
+                            <Image Source="{Binding AvatarSource^}" Stretch="UniformToFill" />
+                          </Border>
+                          <StackPanel Grid.Column="1" Margin="10,0,0,0" Spacing="5">
+                            <Grid ColumnDefinitions="*,Auto">
+                              <TextBlock FontSize="12" FontWeight="SemiBold" Text="{Binding Author}" />
+                              <TextBlock Grid.Column="1" Classes="muted" FontSize="10" Text="{Binding DateLabel}" />
+                            </Grid>
+                            <TextBlock FontSize="12" LineHeight="18" Text="{Binding Text}" TextWrapping="Wrap" />
+                            <StackPanel VerticalAlignment="Center" Orientation="Horizontal" Spacing="5">
+                              <TextBlock
+                                  VerticalAlignment="Center"
+                                  Classes="symbol"
+                                  FontSize="15"
+                                  LineHeight="16"
+                                  Text="thumb_up" />
+                              <TextBlock
+                                  VerticalAlignment="Center"
+                                  Classes="muted"
+                                  FontSize="12"
+                                  FontWeight="Medium"
+                                  LineHeight="16"
+                                  Text="{Binding Likes}" />
+                            </StackPanel>
+                          </StackPanel>
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Border
+                    Padding="24"
+                    Classes="card details-card"
+                    IsVisible="{Binding !DetailsComments.Count}">
+                  <StackPanel HorizontalAlignment="Center" Spacing="7">
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        Classes="symbol"
+                        Foreground="{DynamicResource Brush.Text.Secondary}"
+                        FontSize="24"
+                        Text="forum" />
+                    <TextBlock Classes="muted" Text="У этого тайтла пока нет комментариев" />
+                  </StackPanel>
+                </Border>
+                <Button
+                    HorizontalAlignment="Center"
+                    Classes="details-load-more"
+                    Command="{Binding LoadMoreCommentsCommand}"
+                    IsEnabled="{Binding CanLoadMoreComments}"
+                    IsVisible="{Binding CanLoadMoreComments}"
+                    Content="Показать ещё" />
+              </StackPanel>
+
             </StackPanel>
-          </Grid>
+          </StackPanel>
         </ScrollViewer>
 
         <!-- Player -->
@@ -782,13 +1476,91 @@
             <ContentControl Content="{Binding Player.MediaPlayer}" />
           </Border>
           <Border Grid.Row="2" Padding="24,14" Background="{DynamicResource Brush.Player.Chrome}">
-            <Grid RowDefinitions="Auto,Auto" RowSpacing="10">
+            <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="10">
+              <Grid ColumnDefinitions="2*,*,*,*,*,Auto" ColumnSpacing="10">
+                <StackPanel Spacing="4">
+                  <TextBlock Classes="player-field-label" Text="Озвучка" />
+                  <ComboBox
+                      Classes="player-select"
+                      ItemsSource="{Binding Translations}"
+                      SelectedItem="{Binding SelectedTranslation}">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="models:TranslationItem">
+                        <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                </StackPanel>
+                <StackPanel Grid.Column="1" IsVisible="{Binding IsSeries}" Spacing="4">
+                  <TextBlock Classes="player-field-label" Text="Сезон" />
+                  <ComboBox
+                      Classes="player-select"
+                      ItemsSource="{Binding Seasons}"
+                      SelectedItem="{Binding SelectedSeason}">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="models:ChoiceItem">
+                        <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                </StackPanel>
+                <StackPanel Grid.Column="2" IsVisible="{Binding IsSeries}" Spacing="4">
+                  <TextBlock Classes="player-field-label" Text="Серия" />
+                  <ComboBox
+                      Classes="player-select"
+                      ItemsSource="{Binding Episodes}"
+                      SelectedItem="{Binding SelectedEpisode}">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="models:ChoiceItem">
+                        <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                </StackPanel>
+                <StackPanel Grid.Column="3" Spacing="4">
+                  <TextBlock Classes="player-field-label" Text="Качество" />
+                  <ComboBox
+                      Classes="player-select"
+                      ItemsSource="{Binding Qualities}"
+                      SelectedItem="{Binding SelectedQuality}">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="models:QualityItem">
+                        <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                </StackPanel>
+                <StackPanel Grid.Column="4" Spacing="4">
+                  <TextBlock Classes="player-field-label" Text="Субтитры" />
+                  <ComboBox
+                      Classes="player-select"
+                      ItemsSource="{Binding Subtitles}"
+                      SelectedItem="{Binding SelectedSubtitle}">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="models:SubtitleItem">
+                        <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                </StackPanel>
+                <Button
+                    Grid.Column="5"
+                    Width="44"
+                    Height="44"
+                    Margin="0,18,0,0"
+                    Padding="0"
+                    Classes="player-apply"
+                    Command="{Binding ApplyPlaybackSelectionCommand}">
+                  <TextBlock Classes="symbol filled" FontSize="22" Text="play_arrow" />
+                </Button>
+              </Grid>
               <Slider
+                  Grid.Row="1"
                   Maximum="{Binding Player.DurationMs}"
                   Minimum="0"
                   PointerReleased="SeekSlider_OnPointerReleased"
                   Value="{Binding Player.CurrentTimeMs, Mode=OneWay}" />
-              <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,Auto,*,Auto,160">
+              <Grid Grid.Row="2" ColumnDefinitions="Auto,Auto,Auto,*,Auto,160">
                 <Button
                     Padding="12,7"
                     Classes="ghost"
@@ -836,26 +1608,6 @@
             </Grid>
           </Border>
         </Grid>
-      </Grid>
-
-      <!-- Theme-aware tint keeps the top bar legible without blurring the page. -->
-      <Grid
-          ZIndex="5"
-          Height="118"
-          VerticalAlignment="Top"
-          ClipToBounds="True"
-          IsHitTestVisible="False"
-          IsVisible="{Binding !IsPlayerVisible}">
-        <Border Background="{DynamicResource Brush.TopMask.Tint}">
-          <Border.OpacityMask>
-            <LinearGradientBrush StartPoint="50%,0%" EndPoint="50%,100%">
-              <GradientStop Color="Black" Offset="0" />
-              <GradientStop Color="Black" Offset=".35" />
-              <GradientStop Color="Transparent" Offset=".8" />
-              <GradientStop Color="Transparent" Offset="1" />
-            </LinearGradientBrush>
-          </Border.OpacityMask>
-        </Border>
       </Grid>
 
       <!-- Large in-app category popup, positioned independently of its trigger. -->
@@ -1441,61 +2193,18 @@
             <RotateTransform />
           </TextBlock.RenderTransform>
         </TextBlock>
+        <TextBlock
+            Margin="24,198,24,0"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            FontFamily="{StaticResource Font.Body}"
+            Foreground="{DynamicResource Brush.Text.Secondary}"
+            FontSize="12"
+            Text="{Binding StartupMessage}"
+            TextAlignment="Center"
+            TextWrapping="Wrap" />
       </Grid>
     </Grid>
-
-    <!-- Playback options -->
-    <Border
-        Background="{DynamicResource Brush.Scrim}"
-        IsVisible="{Binding IsPlaybackOptionsOpen}">
-      <Border
-          Width="520"
-          Padding="28"
-          HorizontalAlignment="Center"
-          VerticalAlignment="Center"
-          Classes="dialog">
-        <StackPanel Spacing="18">
-          <StackPanel Spacing="5">
-            <TextBlock Classes="h2" Text="Запустить просмотр" />
-            <TextBlock Classes="muted" Text="Выберите качество и субтитры" />
-          </StackPanel>
-          <StackPanel Spacing="7">
-            <TextBlock Classes="eyebrow" Text="КАЧЕСТВО" />
-            <ComboBox ItemsSource="{Binding Qualities}" SelectedItem="{Binding SelectedQuality}">
-              <ComboBox.ItemTemplate>
-                <DataTemplate x:DataType="models:QualityItem">
-                  <TextBlock Text="{Binding DisplayName}" />
-                </DataTemplate>
-              </ComboBox.ItemTemplate>
-            </ComboBox>
-          </StackPanel>
-          <StackPanel Spacing="7">
-            <TextBlock Classes="eyebrow" Text="СУБТИТРЫ" />
-            <ComboBox ItemsSource="{Binding Subtitles}" SelectedItem="{Binding SelectedSubtitle}">
-              <ComboBox.ItemTemplate>
-                <DataTemplate x:DataType="models:SubtitleItem">
-                  <TextBlock Text="{Binding Title}" />
-                </DataTemplate>
-              </ComboBox.ItemTemplate>
-            </ComboBox>
-          </StackPanel>
-          <TextBlock
-              Foreground="{StaticResource Brush.Danger}"
-              FontSize="12"
-              Text="{Binding StatusMessage}"
-              TextWrapping="Wrap" />
-          <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="10">
-            <Button Classes="ghost" Command="{Binding ClosePlaybackOptionsCommand}" Content="Отмена" />
-            <Button Classes="primary" Command="{Binding StartPlaybackCommand}">
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Classes="symbol filled" Text="play_arrow" />
-                <TextBlock Text="Смотреть" />
-              </StackPanel>
-            </Button>
-          </StackPanel>
-        </StackPanel>
-      </Border>
-    </Border>
 
     <!-- Non-blocking operation status -->
     <Border
@@ -1521,5 +2230,6 @@
             Content="Отмена" />
       </StackPanel>
     </Border>
+
   </Grid>
 </Window>

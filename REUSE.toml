@@ -11,11 +11,18 @@ path = "src/Rezui/Assets/Fonts/GoogleSans-*.ttf"
 precedence = "override"
 SPDX-FileCopyrightText = "2025 The Google Sans Project Authors (github.com/googlefonts/googlesans)"
 SPDX-License-Identifier = "OFL-1.1"
-SPDX-FileComment = "Downloaded as static TrueType fonts from the official Google Fonts CSS API, Google Sans v70."
+SPDX-FileComment = "Downloaded as static TrueType fonts from the official Google Fonts CSS API, Google Sans v70"
 
 [[annotations]]
 path = "src/Rezui/Assets/Fonts/MaterialSymbolsRounded*.ttf"
 precedence = "override"
 SPDX-FileCopyrightText = "2026 Google LLC"
 SPDX-License-Identifier = "Apache-2.0"
-SPDX-FileComment = "Static weight-400 fonts derived from material-symbols npm package 0.45.10."
+SPDX-FileComment = "Static weight-400 fonts derived from material-symbols npm package 0.45.10"
+
+[[annotations]]
+path = "src/Rezui/Assets/CountryFlags/*.*"
+precedence = "override"
+SPDX-FileCopyrightText = "2020 catamphetamine"
+SPDX-License-Identifier = "MIT
+SPDX-FileComment = "Vector country flag icons in 3:2 aspect ratio from npm package 1.6.20

@@ -12,13 +12,18 @@ public interface ILibrarySnapshotProvider
 public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
 {
     private readonly SettingsService _settingsService;
+    private readonly LocalCacheStore? _cache;
     private Client? _client;
     private Media? _currentMedia;
     private AppSettings? _settings;
+    private AuthState _auth = new();
 
-    public RezkaClientService(SettingsService settingsService)
+    public RezkaClientService(
+        SettingsService settingsService,
+        LocalCacheStore? cache = null)
     {
         _settingsService = settingsService;
+        _cache = cache;
     }
 
     public bool IsConfigured => _client is not null;
@@ -28,22 +33,27 @@ public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
     public AppSettings Settings =>
         _settings ?? throw new InvalidOperationException("The service is not initialized.");
 
+    public AuthState Auth => _auth;
+
     public Media? CurrentMedia => _currentMedia;
 
     internal void AttachSettings(AppSettings settings) => _settings = settings;
+
+    internal void AttachAuth(AuthState auth) => _auth = auth;
 
     public async Task<AuthenticationState?> InitializeAsync(
         AppSettings settings,
         CancellationToken cancellationToken = default)
     {
         AttachSettings(settings);
+        _auth = await _settingsService.LoadAuthAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(settings.Origin))
         {
             return null;
         }
 
-        CreateClient(settings.Origin, settings.AuthenticationCookies);
-        if (settings.AuthenticationCookies.Count == 0)
+        CreateClient(settings.Origin, _auth.Cookies);
+        if (!settings.RememberSession || _auth.Cookies.Count == 0)
         {
             return null;
         }
@@ -75,10 +85,16 @@ public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
         _settings.Origin = normalized.AbsoluteUri.TrimEnd('/');
         if (changed)
         {
-            _settings.AuthenticationCookies.Clear();
+            _auth.Cookies.Clear();
+            await _settingsService.ClearAuthAsync(cancellationToken);
+            if (_cache is not null)
+            {
+                await _cache.RemoveAreaAsync(CacheArea.Account, cancellationToken);
+                await _cache.RemoveAreaAsync(CacheArea.Library, cancellationToken);
+            }
         }
 
-        CreateClient(_settings.Origin, _settings.AuthenticationCookies);
+        CreateClient(_settings.Origin, _auth.Cookies);
         await _settingsService.SaveAsync(_settings, cancellationToken);
     }
 
@@ -95,13 +111,19 @@ public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
             cancellationToken);
 
         Settings.RememberSession = true;
-        Settings.AuthenticationCookies.Clear();
+        _auth.Cookies.Clear();
         CopyAuthenticationCookies(
             _client.Options.Cookies,
             state.CookieNames,
-            Settings.AuthenticationCookies);
+            _auth.Cookies);
 
         await _settingsService.SaveAsync(Settings, cancellationToken);
+        await _settingsService.SaveAuthAsync(_auth, cancellationToken);
+        if (_cache is not null)
+        {
+            await _cache.RemoveAreaAsync(CacheArea.Account, cancellationToken);
+            await _cache.RemoveAreaAsync(CacheArea.Library, cancellationToken);
+        }
         return state;
     }
 
@@ -109,22 +131,82 @@ public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
         CancellationToken cancellationToken = default)
     {
         EnsureConfigured();
-        return await _client!.Account.GetProfileAsync(cancellationToken);
+        var cacheKey = GetAccountCacheKey("profile");
+        try
+        {
+            var profile = await _client!.Account.GetProfileAsync(cancellationToken);
+            if (_cache is not null)
+            {
+                await _cache.SetJsonAsync(
+                    CacheArea.Account,
+                    cacheKey,
+                    profile,
+                    TimeSpan.FromHours(6),
+                    cancellationToken);
+            }
+
+            return profile;
+        }
+        catch (Exception exception) when (
+            exception is not OperationCanceledException and not LoginRequiredException &&
+            _cache is not null)
+        {
+            var cached = await _cache.GetJsonAsync<AccountProfile>(
+                CacheArea.Account,
+                cacheKey,
+                cancellationToken);
+            if (cached is not null)
+            {
+                return cached;
+            }
+
+            throw;
+        }
     }
 
     public async Task<AccountLibrarySnapshot> GetLibraryAsync(
         CancellationToken cancellationToken = default)
     {
         EnsureConfigured();
-        var continueWatchingTask =
-            _client!.Account.GetContinueWatchingAsync(cancellationToken);
-        var bookmarksTask =
-            _client.Account.GetBookmarksAsync(cancellationToken);
+        var cacheKey = GetAccountCacheKey("library");
+        try
+        {
+            var continueWatchingTask =
+                _client!.Account.GetContinueWatchingAsync(cancellationToken);
+            var bookmarksTask =
+                _client.Account.GetBookmarksAsync(cancellationToken);
 
-        await Task.WhenAll(continueWatchingTask, bookmarksTask);
-        return new AccountLibrarySnapshot(
-            await continueWatchingTask,
-            await bookmarksTask);
+            await Task.WhenAll(continueWatchingTask, bookmarksTask);
+            var snapshot = new AccountLibrarySnapshot(
+                await continueWatchingTask,
+                await bookmarksTask);
+            if (_cache is not null)
+            {
+                await _cache.SetJsonAsync(
+                    CacheArea.Library,
+                    cacheKey,
+                    snapshot,
+                    TimeSpan.FromMinutes(20),
+                    cancellationToken);
+            }
+
+            return snapshot;
+        }
+        catch (Exception exception) when (
+            exception is not OperationCanceledException and not LoginRequiredException &&
+            _cache is not null)
+        {
+            var cached = await _cache.GetJsonAsync<AccountLibrarySnapshot>(
+                CacheArea.Library,
+                cacheKey,
+                cancellationToken);
+            if (cached is not null)
+            {
+                return cached;
+            }
+
+            throw;
+        }
     }
 
     public async Task LogoutAsync(CancellationToken cancellationToken = default)
@@ -150,13 +232,106 @@ public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
 
     public async Task<Media> LoadMediaAsync(
         Uri url,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? preferredTitle = null)
     {
         EnsureConfigured();
         var media = await _client!.GetAsync(url, cancellationToken);
         var previous = Interlocked.Exchange(ref _currentMedia, media);
         previous?.Dispose();
+        if (_cache is not null)
+        {
+            try
+            {
+                await _cache.SetJsonAsync(
+                    CacheArea.MediaMetadata,
+                    NormalizeMediaCacheKey(url),
+                    CreateMetadataSnapshot(media, preferredTitle),
+                    TimeSpan.FromDays(14),
+                    cancellationToken);
+            }
+            catch (Exception exception) when (
+                exception is not OperationCanceledException and not LoginRequiredException)
+            {
+                // Metadata caching is best-effort; a valid media page still wins.
+            }
+        }
+
         return media;
+    }
+
+    public async Task<CachedMediaMetadata?> GetCachedMediaMetadataAsync(
+        Uri url,
+        CancellationToken cancellationToken = default)
+    {
+        if (_cache is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return await _cache.GetJsonAsync<CachedMediaMetadata>(
+                CacheArea.MediaMetadata,
+                NormalizeMediaCacheKey(url),
+                cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return null;
+        }
+    }
+
+    public async Task<CachedCommentPage> GetCommentsAsync(
+        Media media,
+        int page,
+        CancellationToken cancellationToken = default)
+    {
+        var cacheKey = $"{NormalizeMediaCacheKey(media.Url)}|page:{page}";
+        try
+        {
+            var comments = await media.Comments.GetPageAsync(page, cancellationToken);
+            var snapshot = new CachedCommentPage(
+                comments.Items.Select(comment => new CachedComment(
+                    comment.Id,
+                    comment.ParentId,
+                    comment.Depth,
+                    comment.Author,
+                    comment.AvatarUrl?.AbsoluteUri,
+                    comment.DateLabel,
+                    comment.Text,
+                    comment.Likes,
+                    comment.Url.AbsoluteUri)).ToArray(),
+                comments.Page,
+                comments.TotalPages,
+                comments.LastUpdateId);
+            if (_cache is not null)
+            {
+                await _cache.SetJsonAsync(
+                    CacheArea.Comments,
+                    cacheKey,
+                    snapshot,
+                    TimeSpan.FromHours(2),
+                    cancellationToken);
+            }
+
+            return snapshot;
+        }
+        catch (Exception exception) when (
+            exception is not OperationCanceledException and not LoginRequiredException &&
+            _cache is not null)
+        {
+            var cached = await _cache.GetJsonAsync<CachedCommentPage>(
+                CacheArea.Comments,
+                cacheKey,
+                cancellationToken);
+            if (cached is not null)
+            {
+                return cached;
+            }
+
+            throw;
+        }
     }
 
     public async Task SaveRecentAsync(
@@ -166,24 +341,23 @@ public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
         MediaCategory category,
         CancellationToken cancellationToken = default)
     {
-        var recent = Settings.Recent;
-        recent.RemoveAll(item =>
-            string.Equals(item.Url, url.AbsoluteUri, StringComparison.OrdinalIgnoreCase));
-        recent.Insert(
-            0,
-            new RecentMedia(
+        if (_cache is not null)
+        {
+            await _cache.SaveRecentAsync(
+                new RecentMedia(
                 title,
                 url.AbsoluteUri,
                 imageUrl?.AbsoluteUri ?? string.Empty,
                 LocalizeCategory(category),
-                DateTimeOffset.UtcNow));
-        if (recent.Count > 20)
-        {
-            recent.RemoveRange(20, recent.Count - 20);
+                DateTimeOffset.UtcNow),
+                cancellationToken);
         }
-
-        await _settingsService.SaveAsync(Settings, cancellationToken);
     }
+
+    public Task<IReadOnlyList<RecentMedia>> GetRecentAsync(
+        CancellationToken cancellationToken = default) =>
+        _cache?.GetRecentAsync(20, cancellationToken)
+        ?? Task.FromResult<IReadOnlyList<RecentMedia>>([]);
 
     public static Uri NormalizeOrigin(string origin)
     {
@@ -233,9 +407,98 @@ public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
 
     private async Task ForgetSessionAsync(CancellationToken cancellationToken)
     {
-        Settings.AuthenticationCookies.Clear();
+        _auth.Cookies.Clear();
         await _settingsService.SaveAsync(Settings, cancellationToken);
+        await _settingsService.ClearAuthAsync(cancellationToken);
+        if (_cache is not null)
+        {
+            await _cache.RemoveAreaAsync(CacheArea.Account, cancellationToken);
+            await _cache.RemoveAreaAsync(CacheArea.Library, cancellationToken);
+        }
     }
+
+    private string GetAccountCacheKey(string suffix)
+    {
+        _auth.Cookies.TryGetValue("dle_user_id", out var userId);
+        return $"{Origin?.GetLeftPart(UriPartial.Authority)}|{userId ?? "unknown"}|{suffix}";
+    }
+
+    private static string NormalizeMediaCacheKey(Uri url) =>
+        url.GetLeftPart(UriPartial.Path).TrimEnd('/').ToLowerInvariant();
+
+    internal static CachedMediaMetadata CreateMetadataSnapshot(
+        Media media,
+        string? preferredTitle = null)
+    {
+        var details = media.Details;
+        return new CachedMediaMetadata(
+            media.Url.AbsoluteUri,
+            media.Id,
+            TitleFormatter.Reconcile(media.Name, preferredTitle),
+            media.Names.ToArray(),
+            media.OriginalNames.ToArray(),
+            media.Description,
+            (media.ThumbnailHighQuality ?? media.Thumbnail)?.AbsoluteUri,
+            media.ReleaseYear,
+            media.Format.ToString(),
+            LocalizeCategory(media.Category),
+            media.Playback.IsAvailable,
+            media.Rating.Value,
+            media.Rating.Votes,
+            details.Tagline,
+            details.ReleaseDate,
+            details.Countries.Select(ToCachedLink).ToArray(),
+            details.Genres.Select(ToCachedLink).ToArray(),
+            details.Directors.Select(ToCachedPerson).ToArray(),
+            details.Cast.Select(ToCachedPerson).ToArray(),
+            details.Quality,
+            details.AgeRating,
+            details.Duration is { } duration ? (long)duration.TotalSeconds : null,
+            details.Collections.Select(ToCachedLink).ToArray(),
+            details.Rankings.Select(ToCachedLink).ToArray(),
+            details.ExternalRatings.Select(rating => new CachedExternalRating(
+                rating.Source,
+                rating.Value,
+                rating.Votes,
+                rating.Url?.AbsoluteUri)).ToArray(),
+            details.Recommendations.Select(item => new CachedMediaPreview(
+                item.Title,
+                item.Url.AbsoluteUri,
+                item.ImageUrl?.AbsoluteUri,
+                LocalizeCategory(item.Category),
+                item.Details,
+                item.Information)).ToArray(),
+            details.Schedule.Select(item => new CachedScheduleEntry(
+                item.Id,
+                item.Season,
+                item.Episode,
+                item.Title,
+                item.OriginalTitle,
+                item.ReleaseDate,
+                item.IsAvailable,
+                item.IsWatched)).ToArray(),
+            media.TranslationOptions.Select(item => new CachedTranslator(
+                item.Id,
+                item.Name,
+                item.IsPremium,
+                item.IsCamrip,
+                item.HasAds,
+                item.IsDirectorCut)).ToArray(),
+            media.OtherParts.Select(item => new CachedNamedLink(
+                item.Title,
+                item.Url.AbsoluteUri)).ToArray());
+    }
+
+    private static CachedNamedLink ToCachedLink(NamedLink item) =>
+        new(item.Name, item.Url.AbsoluteUri);
+
+    private static CachedPerson ToCachedPerson(PersonInfo item) =>
+        new(
+            item.Id,
+            item.Name,
+            item.Job,
+            item.Url.AbsoluteUri,
+            item.ImageUrl?.AbsoluteUri);
 
     private static void CopyAuthenticationCookies(
         IDictionary<string, string> source,

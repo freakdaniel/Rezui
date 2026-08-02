@@ -9,11 +9,12 @@ public sealed class AppSettings
     public bool RememberSession { get; set; } = true;
 
     public List<string> CustomMirrors { get; set; } = [];
+}
 
-    public Dictionary<string, string> AuthenticationCookies { get; set; } =
+public sealed class AuthState
+{
+    public Dictionary<string, string> Cookies { get; set; } =
         new(StringComparer.Ordinal);
-
-    public List<RecentMedia> Recent { get; set; } = [];
 }
 
 public sealed record RecentMedia(
@@ -29,4 +30,3 @@ public enum ThemePreference
     Light,
     Dark
 }
-

@@ -13,11 +13,13 @@ public sealed class ImageCacheService : IDisposable
     private static readonly Task<Bitmap?> EmptyImage = Task.FromResult<Bitmap?>(null);
 
     private readonly HttpClient _httpClient;
+    private readonly LocalCacheStore? _cache;
     private readonly ConcurrentDictionary<string, Lazy<Task<Bitmap?>>> _images =
         new(StringComparer.Ordinal);
 
-    public ImageCacheService()
+    public ImageCacheService(LocalCacheStore? cache = null)
     {
+        _cache = cache;
         var handler = new SocketsHttpHandler
         {
             AllowAutoRedirect = true,
@@ -43,9 +45,31 @@ public sealed class ImageCacheService : IDisposable
         return _images.GetOrAdd(
                 imageUrl.AbsoluteUri,
                 _ => new Lazy<Task<Bitmap?>>(
-                    () => DownloadAsync(imageUrl, referer),
+                    () => LoadOrDownloadAsync(imageUrl, referer),
                     LazyThreadSafetyMode.ExecutionAndPublication))
             .Value;
+    }
+
+    private async Task<Bitmap?> LoadOrDownloadAsync(Uri imageUrl, Uri? referer)
+    {
+        if (_cache is not null)
+        {
+            var cached = await _cache.GetBytesAsync(CacheArea.Covers, imageUrl.AbsoluteUri);
+            if (cached is { Length: > 0 })
+            {
+                try
+                {
+                    using var stream = new MemoryStream(cached, writable: false);
+                    return new Bitmap(stream);
+                }
+                catch (ArgumentException)
+                {
+                    // A corrupt cache entry falls through to a fresh network copy.
+                }
+            }
+        }
+
+        return await DownloadAsync(imageUrl, referer);
     }
 
     private async Task<Bitmap?> DownloadAsync(Uri imageUrl, Uri? referer)
@@ -107,8 +131,18 @@ public sealed class ImageCacheService : IDisposable
                 return null;
             }
 
-            bytes.Position = 0;
-            return new Bitmap(bytes);
+            var imageBytes = bytes.ToArray();
+            if (_cache is not null)
+            {
+                await _cache.SetBytesAsync(
+                    CacheArea.Covers,
+                    imageUrl.AbsoluteUri,
+                    imageBytes,
+                    TimeSpan.FromDays(45));
+            }
+
+            using var bitmapStream = new MemoryStream(imageBytes, writable: false);
+            return new Bitmap(bitmapStream);
         }
         catch (Exception exception) when (
             exception is HttpRequestException or

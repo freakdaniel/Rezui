@@ -10,6 +10,7 @@ namespace Rezui;
 public sealed partial class App : Application
 {
     private RezkaClientService? _rezka;
+    private LocalCacheStore? _cache;
     private ImageCacheService? _images;
     private PlayerViewModel? _player;
     private LibrarySyncWorker? _librarySync;
@@ -21,10 +22,11 @@ public sealed partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            var settings = new SettingsService();
+            _cache = new LocalCacheStore();
+            var settings = new SettingsService(cache: _cache);
             var themes = new ThemeService();
-            _rezka = new RezkaClientService(settings);
-            _images = new ImageCacheService();
+            _rezka = new RezkaClientService(settings, _cache);
+            _images = new ImageCacheService(_cache);
             _player = new PlayerViewModel();
             _librarySync = new LibrarySyncWorker(_rezka);
             _mirrorDiscovery = new MirrorDiscoveryService();
@@ -49,6 +51,7 @@ public sealed partial class App : Application
                 _images.Dispose();
                 _mirrorDiscovery.Dispose();
                 _rezka.Dispose();
+                _cache.Dispose();
             };
         }
 

@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Net.Mail;
+using Avalonia;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -12,6 +14,8 @@ namespace Rezui.ViewModels;
 
 public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 {
+    private const int DetailsLoadMaximumAttempts = 4;
+
     private const string LoginPrompt =
         "Войдите в приложение используя свой персональный аккаунт HDRezka";
 
@@ -23,11 +27,23 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private readonly IMirrorDiscoveryService _mirrorDiscovery;
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private CancellationTokenSource? _operationCancellation;
+    private CancellationTokenSource? _detailsLoadCancellation;
+    private CancellationTokenSource? _pageNavigationCancellation;
     private CancellationTokenSource? _loginStatusCancellation;
     private CancellationTokenSource? _mirrorStatusCancellation;
     private AppSettings _settings = new();
+    private AuthState _auth = new();
     private Media? _media;
     private MediaStream? _resolvedStream;
+    private string? _resolvedSelectionKey;
+    private bool _suppressSeasonChange;
+    private int _detailsRequestVersion;
+    private int _detailsImageVersion;
+    private int _detailsImageUpgradeVersion;
+    private int _pageTransitionVersion;
+    private bool _hasDetailsPrimaryImageSource;
+    private DetailsOpenRequest? _detailsOpenRequest;
+    private Page _currentPage = Page.Home;
     private volatile bool _disposed;
 
     public MainWindowViewModel(
@@ -130,6 +146,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<MediaCardItem> ContinueWatching { get; } = [];
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasContinueWatchingHero))]
+    private ContinueWatchingHeroItem? _continueWatchingHero;
+
+    public bool HasContinueWatchingHero => ContinueWatchingHero is not null;
+
     public ObservableCollection<LibraryFolderItem> BookmarkFolders { get; } = [];
 
     public ObservableCollection<TranslationItem> Translations { get; } = [];
@@ -146,6 +168,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private bool _isHomeVisible = true;
 
     [ObservableProperty]
+    private bool _isHomeEntering;
+
+    [ObservableProperty]
+    private bool _isHomeLeaving;
+
+    [ObservableProperty]
     private bool _isLibraryVisible;
 
     [ObservableProperty]
@@ -155,10 +183,37 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private bool _isDetailsVisible;
 
     [ObservableProperty]
-    private bool _isPlayerVisible;
+    private bool _isDetailsEntering;
 
     [ObservableProperty]
-    private bool _isPlaybackOptionsOpen;
+    private bool _isDetailsLeaving;
+
+    [ObservableProperty]
+    private bool _isDetailsContentLoading;
+
+    [ObservableProperty]
+    private bool _isDetailsContentReady;
+
+    [ObservableProperty]
+    private bool _isDetailsContentLoadFailed;
+
+    [ObservableProperty]
+    private string _detailsContentError = string.Empty;
+
+    [ObservableProperty]
+    private string _detailsLoadingStatus = string.Empty;
+
+    [ObservableProperty]
+    private bool _isDetailsHeroBackgroundReady;
+
+    [ObservableProperty]
+    private bool _isDetailsHeroSurfaceVisible;
+
+    [ObservableProperty]
+    private bool _canWatchDetails;
+
+    [ObservableProperty]
+    private bool _isPlayerVisible;
 
     [ObservableProperty]
     private bool _isBusy;
@@ -353,13 +408,73 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private string _detailsDescription = string.Empty;
 
     [ObservableProperty]
+    private string _detailsTagline = string.Empty;
+
+    [ObservableProperty]
     private string _detailsMeta = string.Empty;
 
     [ObservableProperty]
     private string _detailsRating = string.Empty;
 
+    public ObservableCollection<DetailFactItem> DetailsFacts { get; } = [];
+
+    public ObservableCollection<string> DetailsGenres { get; } = [];
+
+    public ObservableCollection<PersonCardItem> DetailsDirectors { get; } = [];
+
+    public ObservableCollection<PersonCardItem> DetailsCast { get; } = [];
+
+    public ObservableCollection<ExternalRatingItem> DetailsExternalRatings { get; } = [];
+
+    public ObservableCollection<ScheduleCardItem> DetailsSchedule { get; } = [];
+
+    public ObservableCollection<MediaCardItem> DetailsRecommendations { get; } = [];
+
+    public ObservableCollection<CommentCardItem> DetailsComments { get; } = [];
+
+    public ObservableCollection<string> DetailsCollections { get; } = [];
+
+    public ObservableCollection<string> DetailsRankings { get; } = [];
+
+    public ObservableCollection<string> DetailsOtherParts { get; } = [];
+
+    public ObservableCollection<DetailGroupCardItem> DetailsGroups { get; } = [];
+
+    [ObservableProperty]
+    private bool _hasDetailGroups;
+
+    [ObservableProperty]
+    private int _detailsGroupColumnCount = 1;
+
+    [ObservableProperty]
+    private int _commentsPage;
+
+    [ObservableProperty]
+    private int _commentsTotalPages;
+
+    [ObservableProperty]
+    private bool _isCommentsLoading;
+
+    public bool CanLoadMoreComments =>
+        !IsCommentsLoading && CommentsPage > 0 && CommentsPage < CommentsTotalPages;
+
+    partial void OnIsCommentsLoadingChanged(bool value) =>
+        OnPropertyChanged(nameof(CanLoadMoreComments));
+
+    partial void OnCommentsPageChanged(int value) =>
+        OnPropertyChanged(nameof(CanLoadMoreComments));
+
+    partial void OnCommentsTotalPagesChanged(int value) =>
+        OnPropertyChanged(nameof(CanLoadMoreComments));
+
     [ObservableProperty]
     private Task<Bitmap?> _detailsImageSource = Task.FromResult<Bitmap?>(null);
+
+    [ObservableProperty]
+    private Task<Bitmap?> _detailsHeroUpgradeImageSource = Task.FromResult<Bitmap?>(null);
+
+    [ObservableProperty]
+    private bool _isDetailsHeroImageUpgradeReady;
 
     private Uri? _detailsImageUrl;
 
@@ -384,7 +499,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     partial void OnSelectedSeasonChanged(ChoiceItem? value)
     {
         Episodes.Clear();
-        if (value is null || _media is null)
+        if (value is null || _media is null || _suppressSeasonChange)
         {
             SelectedEpisode = null;
             return;
@@ -394,21 +509,22 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private void ShowHome() => Navigate(Page.Home);
+    private async Task ShowHomeAsync() =>
+        await NavigateAsync(Page.Home);
 
     [RelayCommand]
-    private void ShowLibrary()
+    private async Task ShowLibraryAsync()
     {
         ActiveCategory = null;
-        Navigate(Page.Library);
+        await NavigateAsync(Page.Library);
         RequestLibraryRefresh(LibrarySyncReason.LibraryOpened);
     }
 
     [RelayCommand]
-    private void OpenSettings()
+    private async Task OpenSettingsAsync()
     {
         StatusMessage = string.Empty;
-        Navigate(Page.Settings);
+        await NavigateAsync(Page.Settings);
     }
 
     [RelayCommand]
@@ -734,11 +850,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         if (string.IsNullOrWhiteSpace(SearchQuery))
         {
-            ShowLibrary();
+            await ShowLibraryAsync();
             return;
         }
 
-        Navigate(Page.Library);
+        await NavigateAsync(Page.Library);
         await RunBusyAsync(async cancellationToken =>
         {
             StatusMessage = $"Ищем «{SearchQuery.Trim()}»…";
@@ -767,6 +883,34 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
+    private async Task OpenPlayerAsync()
+    {
+        if (_media is null || !CanWatchDetails || !_media.Playback.IsAvailable)
+        {
+            return;
+        }
+
+        await NavigateAsync(Page.Player);
+        await ApplyPlaybackSelectionAsync();
+    }
+
+    [RelayCommand]
+    private async Task ApplyPlaybackSelectionAsync()
+    {
+        var selectionKey = BuildPlaybackSelectionKey();
+        if (_resolvedStream is null ||
+            !string.Equals(_resolvedSelectionKey, selectionKey, StringComparison.Ordinal))
+        {
+            await ResolvePlaybackAsync();
+        }
+
+        if (SelectedQuality is { IsAvailable: true, Urls.Count: > 0 })
+        {
+            await StartPlaybackAsync();
+        }
+    }
+
+    [RelayCommand]
     private async Task ResolvePlaybackAsync()
     {
         if (_media is null)
@@ -787,6 +931,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 SelectedEpisode?.Value,
                 SelectedTranslation?.Name,
                 cancellationToken: cancellationToken);
+            _resolvedSelectionKey = BuildPlaybackSelectionKey();
 
             Qualities.Clear();
             foreach (var quality in _resolvedStream.Qualities.Values.Reverse())
@@ -821,12 +966,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                                            _resolvedStream.DefaultSubtitle,
                                            StringComparison.OrdinalIgnoreCase))
                                ?? Subtitles[0];
-            IsPlaybackOptionsOpen = true;
         });
     }
-
-    [RelayCommand]
-    private void ClosePlaybackOptions() => IsPlaybackOptionsOpen = false;
 
     [RelayCommand]
     private async Task StartPlaybackAsync()
@@ -846,8 +987,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 quality.Urls[0],
                 SelectedSubtitle?.Url,
                 _media.Url);
-            IsPlaybackOptionsOpen = false;
-            Navigate(Page.Player);
+            await NavigateAsync(Page.Player);
             StatusMessage = string.Empty;
         }
         catch (Exception exception)
@@ -861,10 +1001,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private void BackFromPlayer()
+    private async Task BackFromPlayerAsync()
     {
         Player.StopCommand.Execute(null);
-        Navigate(Page.Details);
+        await NavigateAsync(Page.Details, animateEntrance: false);
     }
 
     [RelayCommand]
@@ -882,12 +1022,17 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             cancellationToken);
         try
         {
+            StartupMessage = "Читаем настройки приложения";
             SetStartupLoading();
             _settings = await _settingsService.LoadAsync(cancellationToken);
+            _auth = await _settingsService.LoadAuthAsync(cancellationToken);
             _rezka.AttachSettings(_settings);
+            _rezka.AttachAuth(_auth);
             SelectedTheme = _settings.Theme;
             _themes.Apply(SelectedTheme);
-            RebuildRecent();
+            await RebuildRecentAsync(cancellationToken);
+
+            StartupMessage = "Проверяем доступные зеркала";
             SetStartupLoading();
             await RefreshMirrorsAsync(cancellationToken);
             if (!HasAvailableMirror)
@@ -901,6 +1046,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             await _rezka.ConfigureOriginAsync(Origin, cancellationToken);
             _settings = _rezka.Settings;
 
+            StartupMessage = "Восстанавливаем сессию";
             SetStartupLoading();
             var state = await _rezka.InitializeAsync(_settings, cancellationToken);
             if (state?.IsAuthenticated != true)
@@ -935,88 +1081,818 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private async Task CompleteStartupAsync(AuthenticationState state)
     {
+        var cancellationToken = _lifetimeCancellation.Token;
+        StartupMessage = "Загружаем профиль и библиотеку";
         SetStartupLoading();
 
-        var profile = await _rezka.GetProfileAsync();
+        var profileTask = _rezka.GetProfileAsync(cancellationToken);
+        var libraryTask = _rezka.GetLibraryAsync(cancellationToken);
+        await Task.WhenAll(profileTask, libraryTask);
+
+        var profile = await profileTask;
         ApplyAuthentication(state, profile);
+        ApplyLibrarySnapshot(await libraryTask);
 
+        StartupMessage = "Подготавливаем главную страницу";
         SetStartupLoading();
-        RebuildRecent();
-        Navigate(Page.Home);
+        await RebuildRecentAsync(cancellationToken);
+        await PrepareHomeAssetsAsync(cancellationToken);
+
+        ShowPage(Page.Home);
         IsShellVisible = true;
-        await Task.Delay(TimeSpan.FromMilliseconds(60), _lifetimeCancellation.Token);
+        await Task.Delay(TimeSpan.FromMilliseconds(60), cancellationToken);
 
         IsStartupVisible = false;
-        await Task.Delay(TimeSpan.FromMilliseconds(360), _lifetimeCancellation.Token);
+        await Task.Delay(TimeSpan.FromMilliseconds(360), cancellationToken);
         IsStartupPresented = false;
         StatusMessage = "Сессия восстановлена";
-        RequestLibraryRefresh(LibrarySyncReason.SessionRestored);
     }
 
-    private async Task OpenMediaAsync(Uri url)
+    private async Task PrepareHomeAssetsAsync(CancellationToken cancellationToken)
     {
-        await RunBusyAsync(async cancellationToken =>
+        var imageTasks = new List<Task<Bitmap?>>
         {
-            StatusMessage = "Загружаем карточку…";
-            _media = await _rezka.LoadMediaAsync(url, cancellationToken);
-            DetailsTitle = _media.Name;
-            DetailsOriginalTitle = _media.OriginalName ?? string.Empty;
-            DetailsDescription = _media.Description;
-            _detailsImageUrl = _media.ThumbnailHighQuality ?? _media.Thumbnail;
-            DetailsImageSource = _images.LoadAsync(_detailsImageUrl, _media.Url);
-            DetailsMeta = string.Join(
-                "  ·  ",
-                new[]
-                {
-                    _media.ReleaseYear?.ToString(),
-                    RezkaClientService.LocalizeCategory(_media.Category),
-                    _media.Format == MediaFormat.Series ? "Сериал" : "Фильм"
-                }.Where(value => !string.IsNullOrWhiteSpace(value)));
-            DetailsRating = _media.Rating.Value is { } rating
-                ? $"★ {rating:0.0}" +
-                  (_media.Rating.Votes is { } votes ? $"  ·  {votes:N0} оценок" : string.Empty)
-                : "Рейтинг не указан";
-            IsSeries = _media.Format == MediaFormat.Series;
+            ProfileImageSource
+        };
 
-            Translations.Clear();
-            foreach (var translator in _media.TranslationOptions)
+        if (ContinueWatchingHero is { } hero)
+        {
+            imageTasks.Add(hero.ImageSource);
+        }
+
+        imageTasks.AddRange(Recent.Select(item => item.ImageSource));
+        await Task.WhenAll(imageTasks.Distinct()).WaitAsync(cancellationToken);
+    }
+
+    private async Task OpenMediaAsync(
+        Uri url,
+        string previewTitle,
+        Uri? previewImageUrl,
+        Task<Bitmap?> previewImageSource,
+        string previewCategory)
+    {
+        _detailsOpenRequest = new DetailsOpenRequest(
+            url,
+            previewTitle,
+            previewImageUrl,
+            previewImageSource,
+            previewCategory);
+        CancelDetailsLoad();
+        var requestVersion = ++_detailsRequestVersion;
+        var detailsCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            _lifetimeCancellation.Token);
+        _detailsLoadCancellation = detailsCancellation;
+        var detailsToken = detailsCancellation.Token;
+
+        try
+        {
+            if (IsDetailsVisible)
             {
-                Translations.Add(new TranslationItem(
-                    translator.Id,
-                    translator.Name,
-                    translator.IsPremium));
-            }
-
-            SelectedTranslation =
-                Translations.FirstOrDefault(item => !item.IsPremium || _media.IsPremiumAccount)
-                ?? Translations.FirstOrDefault();
-
-            Seasons.Clear();
-            Episodes.Clear();
-            if (IsSeries)
-            {
-                var seasons = await _media.GetEpisodesInfoAsync(cancellationToken);
-                foreach (var season in seasons)
+                await PlayPageExitAsync(Page.Details, detailsToken);
+                detailsToken.ThrowIfCancellationRequested();
+                if (requestVersion != _detailsRequestVersion)
                 {
-                    Seasons.Add(new ChoiceItem(season.Number, season.Title));
+                    return;
                 }
 
-                SelectedSeason = Seasons.FirstOrDefault();
+                IsDetailsVisible = false;
+                IsDetailsLeaving = false;
             }
 
-            await _rezka.SaveRecentAsync(
-                _media.Name,
-                _media.Url,
-                _detailsImageUrl,
-                _media.Category,
-                cancellationToken);
-            RebuildRecent();
-            Navigate(Page.Details);
-            StatusMessage = string.Empty;
-        });
+            IsDetailsEntering = false;
+            ResetDetailsPresentation();
+            _media = null;
+            _resolvedStream = null;
+            _resolvedSelectionKey = null;
+            Translations.Clear();
+            Seasons.Clear();
+            Episodes.Clear();
+            Qualities.Clear();
+            Subtitles.Clear();
+            SelectedTranslation = null;
+            SelectedSeason = null;
+            SelectedEpisode = null;
+            SelectedQuality = null;
+            SelectedSubtitle = null;
+            DetailsComments.Clear();
+            CommentsPage = 0;
+            CommentsTotalPages = 0;
+            var cached = await _rezka.GetCachedMediaMetadataAsync(
+                url,
+                detailsToken);
+            detailsToken.ThrowIfCancellationRequested();
+            if (cached is not null)
+            {
+                IsDetailsContentLoading = false;
+                IsDetailsContentReady = true;
+                IsDetailsContentLoadFailed = false;
+                ApplyMediaMetadata(cached, requestVersion, detailsToken);
+                await PresentDetailsAsync(requestVersion, detailsToken);
+                StatusMessage = string.Empty;
+            }
+            else
+            {
+                IsDetailsContentLoading = true;
+                IsDetailsContentReady = false;
+                IsDetailsContentLoadFailed = false;
+                DetailsLoadingStatus = "Загружаем данные тайтла";
+                ApplyMediaPreview(
+                    previewTitle,
+                    previewImageUrl,
+                    previewImageSource,
+                    previewCategory,
+                    requestVersion,
+                    detailsToken);
+                await PresentDetailsAsync(requestVersion, detailsToken);
+            }
+
+            await RunBusyAsync(async cancellationToken =>
+            {
+                var maximumAttempts = cached is null
+                    ? DetailsLoadMaximumAttempts
+                    : 1;
+                for (var attempt = 1; attempt <= maximumAttempts; attempt++)
+                {
+                    if (attempt > 1)
+                    {
+                        DetailsLoadingStatus =
+                            $"Повторная попытка {attempt} из {maximumAttempts}";
+                        await Task.Delay(
+                            GetDetailsRetryDelay(attempt),
+                            cancellationToken);
+                    }
+
+                    try
+                    {
+                        await LoadDetailsContentAttemptAsync(
+                            url,
+                            previewTitle,
+                            requestVersion,
+                            cancellationToken);
+                        return;
+                    }
+                    catch (OperationCanceledException) when (
+                        !cancellationToken.IsCancellationRequested &&
+                        attempt < maximumAttempts)
+                    {
+                        // A request timeout is transient; retry while the
+                        // navigation token itself is still active.
+                    }
+                    catch (Exception exception) when (
+                        IsTransientDetailsLoadException(exception) &&
+                        attempt < maximumAttempts)
+                    {
+                        // Network and mirror failures may recover on the next attempt.
+                    }
+                    catch (OperationCanceledException) when (
+                        !detailsToken.IsCancellationRequested)
+                    {
+                        SetDetailsContentFailure(
+                            "Загрузка была отменена",
+                            requestVersion);
+                        throw;
+                    }
+                    catch (Exception exception) when (
+                        exception is not OperationCanceledException)
+                    {
+                        SetDetailsContentFailure(
+                            ToUserMessage(exception),
+                            requestVersion);
+                        throw;
+                    }
+                }
+            }, showActivity: false, cancellationToken: detailsToken);
+        }
+        catch (OperationCanceledException) when (detailsToken.IsCancellationRequested)
+        {
+            // The user left the pending title or opened another one.
+        }
+        finally
+        {
+            if (ReferenceEquals(_detailsLoadCancellation, detailsCancellation))
+            {
+                _detailsLoadCancellation = null;
+            }
+
+            detailsCancellation.Dispose();
+        }
     }
 
-    private async Task LoadEpisodesForSeasonAsync(int seasonNumber)
+    private async Task PresentDetailsAsync(
+        int requestVersion,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (requestVersion != _detailsRequestVersion)
+        {
+            return;
+        }
+
+        await NavigateAsync(Page.Details, cancellationToken);
+    }
+
+    private void ResetDetailsPresentation()
+    {
+        _detailsImageVersion++;
+        _detailsImageUpgradeVersion++;
+        _hasDetailsPrimaryImageSource = false;
+        IsDetailsContentLoading = false;
+        IsDetailsContentReady = false;
+        IsDetailsContentLoadFailed = false;
+        DetailsContentError = string.Empty;
+        DetailsLoadingStatus = string.Empty;
+        CanWatchDetails = false;
+        IsDetailsHeroBackgroundReady = false;
+        IsDetailsHeroImageUpgradeReady = false;
+        IsDetailsHeroSurfaceVisible = false;
+        DetailsTitle = string.Empty;
+        DetailsOriginalTitle = string.Empty;
+        DetailsDescription = string.Empty;
+        DetailsTagline = string.Empty;
+        DetailsMeta = string.Empty;
+        DetailsRating = string.Empty;
+        DetailsImageSource = Task.FromResult<Bitmap?>(null);
+        DetailsHeroUpgradeImageSource = Task.FromResult<Bitmap?>(null);
+        _detailsImageUrl = null;
+        DetailsFacts.Clear();
+        DetailsGenres.Clear();
+        DetailsDirectors.Clear();
+        DetailsCast.Clear();
+        DetailsExternalRatings.Clear();
+        DetailsSchedule.Clear();
+        DetailsRecommendations.Clear();
+        DetailsComments.Clear();
+        DetailsCollections.Clear();
+        DetailsRankings.Clear();
+        DetailsOtherParts.Clear();
+        DetailsGroups.Clear();
+        DetailsGroupColumnCount = 1;
+        HasDetailGroups = false;
+        CommentsPage = 0;
+        CommentsTotalPages = 0;
+    }
+
+    [RelayCommand]
+    private async Task RetryDetailsContentAsync()
+    {
+        if (_detailsOpenRequest is not { } request || IsDetailsContentLoading)
+        {
+            return;
+        }
+
+        await OpenMediaAsync(
+            request.Url,
+            request.PreviewTitle,
+            request.PreviewImageUrl,
+            request.PreviewImageSource,
+            request.PreviewCategory);
+    }
+
+    private void SetDetailsContentFailure(string message, int requestVersion)
+    {
+        if (requestVersion != _detailsRequestVersion || IsDetailsContentReady)
+        {
+            return;
+        }
+
+        IsDetailsContentLoading = false;
+        IsDetailsContentLoadFailed = true;
+        DetailsContentError = string.IsNullOrWhiteSpace(message)
+            ? "Не удалось загрузить данные тайтла"
+            : message;
+        DetailsLoadingStatus = string.Empty;
+    }
+
+    private async Task LoadDetailsContentAttemptAsync(
+        Uri url,
+        string previewTitle,
+        int requestVersion,
+        CancellationToken cancellationToken)
+    {
+        _media = await Task.Run(
+            () => _rezka.LoadMediaAsync(
+                url,
+                cancellationToken,
+                previewTitle),
+            cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        var metadata = await Task.Run(
+            () => RezkaClientService.CreateMetadataSnapshot(
+                _media,
+                previewTitle),
+            cancellationToken);
+        ApplyMediaMetadata(metadata, requestVersion, cancellationToken);
+        IsSeries = _media.Format == MediaFormat.Series;
+        CanWatchDetails = _media.Playback.IsAvailable;
+
+        Translations.Clear();
+        foreach (var translator in _media.TranslationOptions)
+        {
+            Translations.Add(new TranslationItem(
+                translator.Id,
+                translator.Name,
+                translator.IsPremium));
+        }
+
+        SelectedTranslation =
+            Translations.FirstOrDefault(item =>
+                !item.IsPremium || _media.IsPremiumAccount)
+            ?? Translations.FirstOrDefault();
+
+        Seasons.Clear();
+        Episodes.Clear();
+        var commentsTask = LoadCommentsPageAsync(
+            1,
+            replace: true,
+            cancellationToken);
+        if (IsSeries && CanWatchDetails)
+        {
+            var media = _media;
+            var seasons = await Task.Run(
+                () => media.GetEpisodesInfoAsync(cancellationToken),
+                cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            foreach (var season in seasons)
+            {
+                Seasons.Add(new ChoiceItem(season.Number, season.Title));
+            }
+
+            _suppressSeasonChange = true;
+            SelectedSeason = Seasons.FirstOrDefault();
+            _suppressSeasonChange = false;
+            if (SelectedSeason is { } selectedSeason)
+            {
+                var season = seasons.FirstOrDefault(item =>
+                    item.Number == selectedSeason.Value);
+                if (season is not null)
+                {
+                    foreach (var episode in season.Episodes)
+                    {
+                        Episodes.Add(new ChoiceItem(
+                            episode.Number,
+                            episode.Title));
+                    }
+                }
+
+                SelectedEpisode = Episodes.FirstOrDefault();
+            }
+        }
+
+        await commentsTask;
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (requestVersion == _detailsRequestVersion)
+        {
+            IsDetailsContentLoading = false;
+            IsDetailsContentReady = true;
+            IsDetailsContentLoadFailed = false;
+            DetailsContentError = string.Empty;
+            DetailsLoadingStatus = string.Empty;
+        }
+
+        await _rezka.SaveRecentAsync(
+            _media.Name,
+            _media.Url,
+            _detailsImageUrl,
+            _media.Category,
+            cancellationToken);
+        await RebuildRecentAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        StatusMessage = string.Empty;
+    }
+
+    private static TimeSpan GetDetailsRetryDelay(int attempt) => attempt switch
+    {
+        2 => TimeSpan.FromMilliseconds(650),
+        3 => TimeSpan.FromMilliseconds(1400),
+        _ => TimeSpan.FromMilliseconds(2800)
+    };
+
+    private static bool IsTransientDetailsLoadException(Exception exception) =>
+        exception is HttpRequestException or HttpException or IOException or TimeoutException;
+
+    private void ApplyMediaPreview(
+        string title,
+        Uri? imageUrl,
+        Task<Bitmap?> imageSource,
+        string category,
+        int requestVersion,
+        CancellationToken cancellationToken)
+    {
+        DetailsTitle = TitleFormatter.Normalize(title);
+        _detailsImageUrl = imageUrl;
+        if (imageUrl is not null)
+        {
+            SetDetailsImageSource(imageSource, requestVersion, cancellationToken);
+        }
+
+        DetailsMeta = category;
+        DetailsRating = string.Empty;
+        IsSeries = category.Contains("сериал", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string BuildPlaybackSelectionKey() =>
+        $"{SelectedTranslation?.Id}:{SelectedSeason?.Value}:{SelectedEpisode?.Value}";
+
+    private void ApplyMediaMetadata(
+        CachedMediaMetadata metadata,
+        int requestVersion,
+        CancellationToken cancellationToken)
+    {
+        DetailsTitle = TitleFormatter.Reconcile(
+            metadata.Title,
+            _detailsOpenRequest?.PreviewTitle);
+        DetailsOriginalTitle = string.Join(" · ", metadata.OriginalNames);
+        DetailsDescription = metadata.Description;
+        DetailsTagline = metadata.Tagline ?? string.Empty;
+        _detailsImageUrl = Uri.TryCreate(metadata.ImageUrl, UriKind.Absolute, out var imageUrl)
+            ? imageUrl
+            : null;
+        var mediaUrl = Uri.TryCreate(metadata.Url, UriKind.Absolute, out var parsedMediaUrl)
+            ? parsedMediaUrl
+            : _rezka.Origin;
+        if (_detailsImageUrl is not null)
+        {
+            SetDetailsImageSource(
+                _images.LoadAsync(_detailsImageUrl, mediaUrl),
+                requestVersion,
+                cancellationToken);
+        }
+        DetailsMeta = string.Join(
+            "  ·  ",
+            new[]
+            {
+                metadata.ReleaseYear?.ToString(),
+                metadata.Category,
+                metadata.Format == nameof(MediaFormat.Series) ? "Сериал" : "Фильм"
+            }.Where(value => !string.IsNullOrWhiteSpace(value)));
+        DetailsRating = metadata.Rating is { } rating
+            ? $"★ {rating:0.0}" +
+              (metadata.RatingVotes is { } votes ? $"  ·  {votes:N0} оценок" : string.Empty)
+            : "Рейтинг не указан";
+        IsSeries = metadata.Format == nameof(MediaFormat.Series);
+        CanWatchDetails = metadata.IsPlaybackAvailable;
+
+        ReconcileSimpleCollection(
+            DetailsGenres,
+            metadata.Genres.Select(item => item.Name));
+        ReconcileSimpleCollection(
+            DetailsCollections,
+            metadata.Collections.Select(item => item.Name));
+        ReconcileSimpleCollection(
+            DetailsRankings,
+            metadata.Rankings.Select(item => item.Name));
+        ReconcileSimpleCollection(
+            DetailsOtherParts,
+            metadata.OtherParts.Select(item => item.Name));
+        RebuildDetailGroups();
+
+        DetailsFacts.Clear();
+        AddDetailFact("Дата выхода", metadata.ReleaseDate?.ToString("dd MMMM yyyy"));
+        AddCountriesFact(metadata.Countries);
+        AddDetailFact("Жанры", string.Join(", ", metadata.Genres.Select(item => item.Name)));
+        AddAgeFact(metadata.AgeRating);
+        AddDetailFact(
+            "Время",
+            metadata.DurationSeconds is { } seconds
+                ? FormatDuration(TimeSpan.FromSeconds(seconds))
+                : null);
+
+        DetailsDirectors.Clear();
+        foreach (var person in metadata.Directors)
+        {
+            DetailsDirectors.Add(CreatePersonCard(person, mediaUrl));
+        }
+
+        DetailsCast.Clear();
+        foreach (var person in metadata.Cast.Take(18))
+        {
+            DetailsCast.Add(CreatePersonCard(person, mediaUrl));
+        }
+
+        DetailsExternalRatings.Clear();
+        foreach (var ratingItem in metadata.ExternalRatings)
+        {
+            Uri.TryCreate(ratingItem.Url, UriKind.Absolute, out var ratingUrl);
+            DetailsExternalRatings.Add(new ExternalRatingItem(
+                ratingItem.Source,
+                ratingItem.Value?.ToString("0.0") ?? "—",
+                ratingItem.Votes is { } sourceVotes
+                    ? $"{sourceVotes:N0} оценок"
+                    : string.Empty,
+                ratingUrl));
+        }
+
+        DetailsSchedule.Clear();
+        foreach (var item in metadata.Schedule.Take(16))
+        {
+            DetailsSchedule.Add(new ScheduleCardItem(
+                $"{item.Season} сезон · {item.Episode} серия",
+                item.Title ?? item.OriginalTitle ?? "Без названия",
+                item.ReleaseDate?.ToString("dd.MM.yyyy") ?? "Дата не указана",
+                item.IsAvailable,
+                item.IsWatched));
+        }
+
+        DetailsRecommendations.Clear();
+        foreach (var item in metadata.Recommendations.Take(12))
+        {
+            if (!Uri.TryCreate(item.Url, UriKind.Absolute, out var recommendationUrl))
+            {
+                continue;
+            }
+
+            Uri.TryCreate(item.ImageUrl, UriKind.Absolute, out var recommendationImage);
+            DetailsRecommendations.Add(CreateCard(
+                item.Title,
+                recommendationUrl,
+                recommendationImage,
+                item.Category));
+        }
+    }
+
+    private void SetDetailsImageSource(
+        Task<Bitmap?> imageSource,
+        int requestVersion,
+        CancellationToken cancellationToken)
+    {
+        if (ReferenceEquals(DetailsImageSource, imageSource) ||
+            ReferenceEquals(DetailsHeroUpgradeImageSource, imageSource))
+        {
+            return;
+        }
+
+        if (_hasDetailsPrimaryImageSource)
+        {
+            IsDetailsHeroImageUpgradeReady = false;
+            DetailsHeroUpgradeImageSource = imageSource;
+            var upgradeVersion = ++_detailsImageUpgradeVersion;
+            _ = RevealDetailsHeroImageUpgradeAsync(
+                imageSource,
+                requestVersion,
+                upgradeVersion,
+                cancellationToken);
+            return;
+        }
+
+        _hasDetailsPrimaryImageSource = true;
+        IsDetailsHeroBackgroundReady = false;
+        IsDetailsHeroImageUpgradeReady = false;
+        DetailsHeroUpgradeImageSource = Task.FromResult<Bitmap?>(null);
+        _detailsImageUpgradeVersion++;
+        DetailsImageSource = imageSource;
+        var imageVersion = ++_detailsImageVersion;
+        _ = RevealDetailsHeroBackgroundAsync(
+            imageSource,
+            requestVersion,
+            imageVersion,
+            cancellationToken);
+    }
+
+    private async Task RevealDetailsHeroBackgroundAsync(
+        Task<Bitmap?> imageSource,
+        int requestVersion,
+        int imageVersion,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var image = await imageSource.WaitAsync(cancellationToken);
+            if (image is null)
+            {
+                return;
+            }
+
+            while (!IsDetailsVisible)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (imageVersion != _detailsImageVersion)
+                {
+                    return;
+                }
+
+                await Task.Delay(TimeSpan.FromMilliseconds(16), cancellationToken);
+            }
+
+            // Give the task binding one render turn to install the bitmap before
+            // the ready class starts its opacity transition.
+            await Task.Delay(TimeSpan.FromMilliseconds(20), cancellationToken);
+            if (requestVersion == _detailsRequestVersion &&
+                imageVersion == _detailsImageVersion &&
+                IsDetailsVisible &&
+                IsDetailsHeroSurfaceVisible)
+            {
+                IsDetailsHeroBackgroundReady = true;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // The user left this title before its cover became available.
+        }
+    }
+
+    private async Task RevealDetailsHeroImageUpgradeAsync(
+        Task<Bitmap?> imageSource,
+        int requestVersion,
+        int upgradeVersion,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var image = await imageSource.WaitAsync(cancellationToken);
+            if (image is null)
+            {
+                return;
+            }
+
+            while (!IsDetailsVisible)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (upgradeVersion != _detailsImageUpgradeVersion)
+                {
+                    return;
+                }
+
+                await Task.Delay(TimeSpan.FromMilliseconds(16), cancellationToken);
+            }
+
+            // Keep the preview bitmap painted while the high-quality source is
+            // decoded, then crossfade the already-renderable replacement over it.
+            await Task.Delay(TimeSpan.FromMilliseconds(20), cancellationToken);
+            if (requestVersion == _detailsRequestVersion &&
+                upgradeVersion == _detailsImageUpgradeVersion &&
+                IsDetailsVisible &&
+                IsDetailsHeroSurfaceVisible)
+            {
+                IsDetailsHeroImageUpgradeReady = true;
+                IsDetailsHeroBackgroundReady = true;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // The user left this title before the upgraded cover became available.
+        }
+    }
+
+    private PersonCardItem CreatePersonCard(CachedPerson person, Uri? referer)
+    {
+        Uri.TryCreate(person.ImageUrl, UriKind.Absolute, out var imageUrl);
+        return new PersonCardItem(
+            person.Name,
+            person.Job,
+            _images.LoadAsync(imageUrl, referer));
+    }
+
+    private void AddDetailFact(string label, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            DetailsFacts.Add(new DetailFactItem(label, value));
+        }
+    }
+
+    private void AddCountriesFact(IReadOnlyList<CachedNamedLink> countries)
+    {
+        if (countries.Count == 0)
+        {
+            return;
+        }
+
+        DetailsFacts.Add(new DetailFactItem(
+            "Страны",
+            string.Join(", ", countries.Select(item => item.Name)),
+            countries.Select(CountryFlagAssets.Create).ToArray()));
+    }
+
+    private void AddAgeFact(string? ageRating)
+    {
+        if (string.IsNullOrWhiteSpace(ageRating))
+        {
+            return;
+        }
+
+        var icon = AgeRatingAssets.Get(ageRating);
+        DetailsFacts.Add(icon is null
+            ? new DetailFactItem("Возраст", ageRating)
+            : new DetailFactItem("Возраст", ageRating, AgeIcon: icon));
+    }
+
+    private void RebuildDetailGroups()
+    {
+        var groups = new[]
+        {
+            (Title: "Коллекции", Items: (IReadOnlyList<string>)DetailsCollections.ToArray()),
+            (Title: "Место в подборках", Items: (IReadOnlyList<string>)DetailsRankings.ToArray()),
+            (Title: "Другие части", Items: (IReadOnlyList<string>)DetailsOtherParts.ToArray())
+        }.Where(group => group.Items.Count > 0).ToArray();
+
+        DetailsGroups.Clear();
+        DetailsGroupColumnCount = Math.Max(groups.Length, 1);
+        var innerColumnCount = groups.Length switch
+        {
+            1 => 3,
+            2 => 2,
+            _ => 1
+        };
+
+        foreach (var group in groups)
+        {
+            DetailsGroups.Add(new DetailGroupCardItem(
+                group.Title,
+                group.Items,
+                innerColumnCount));
+        }
+
+        HasDetailGroups = DetailsGroups.Count > 0;
+    }
+
+    private static string FormatDuration(TimeSpan duration) =>
+        duration.TotalHours >= 1
+            ? $"{(int)duration.TotalHours} ч {duration.Minutes} мин"
+            : $"{duration.Minutes} мин";
+
+    private static void ReconcileSimpleCollection(
+        ObservableCollection<string> target,
+        IEnumerable<string> values)
+    {
+        target.Clear();
+        foreach (var value in values.Where(value => !string.IsNullOrWhiteSpace(value)))
+        {
+            target.Add(value);
+        }
+    }
+
+    [RelayCommand]
+    private async Task LoadMoreCommentsAsync()
+    {
+        if (_media is null || !CanLoadMoreComments)
+        {
+            return;
+        }
+
+        await LoadCommentsPageAsync(
+            CommentsPage + 1,
+            replace: false,
+            _lifetimeCancellation.Token);
+    }
+
+    private async Task LoadCommentsPageAsync(
+        int page,
+        bool replace,
+        CancellationToken cancellationToken)
+    {
+        if (_media is null || IsCommentsLoading)
+        {
+            return;
+        }
+
+        var media = _media;
+        IsCommentsLoading = true;
+        try
+        {
+            var result = await Task.Run(
+                () => _rezka.GetCommentsAsync(media, page, cancellationToken),
+                cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!ReferenceEquals(_media, media))
+            {
+                return;
+            }
+
+            if (replace)
+            {
+                DetailsComments.Clear();
+            }
+
+            foreach (var comment in result.Items)
+            {
+                Uri.TryCreate(comment.AvatarUrl, UriKind.Absolute, out var avatarUrl);
+                DetailsComments.Add(new CommentCardItem(
+                    comment.Id,
+                    comment.Author,
+                    comment.DateLabel,
+                    comment.Text,
+                    comment.Likes,
+                    new Thickness(Math.Min(comment.Depth, 4) * 24, 0, 0, 0),
+                    _images.LoadAsync(avatarUrl, media.Url)));
+            }
+
+            CommentsPage = result.Page;
+            CommentsTotalPages = result.TotalPages;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            StatusMessage = $"Комментарии недоступны: {ToUserMessage(exception)}";
+        }
+        finally
+        {
+            IsCommentsLoading = false;
+        }
+    }
+
+    private async Task LoadEpisodesForSeasonAsync(
+        int seasonNumber,
+        CancellationToken cancellationToken = default)
     {
         if (_media is null)
         {
@@ -1025,7 +1901,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
         try
         {
-            var seasons = await _media.GetEpisodesInfoAsync();
+            var media = _media;
+            var seasons = await Task.Run(
+                () => media.GetEpisodesInfoAsync(cancellationToken),
+                cancellationToken);
             var season = seasons.FirstOrDefault(item => item.Number == seasonNumber);
             Episodes.Clear();
             if (season is not null)
@@ -1038,7 +1917,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
             SelectedEpisode = Episodes.FirstOrDefault();
         }
-        catch (Exception exception)
+        catch (Exception exception) when (exception is not OperationCanceledException)
         {
             StatusMessage = ToUserMessage(exception);
         }
@@ -1048,18 +1927,27 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         string title,
         Uri url,
         Uri? imageUrl,
-        string category) =>
-        new(
-            title,
+        string category)
+    {
+        var displayTitle = TitleFormatter.Normalize(title);
+        var imageSource = _images.LoadAsync(imageUrl, url);
+        return new MediaCardItem(
+            displayTitle,
             url,
-            _images.LoadAsync(imageUrl, url),
+            imageSource,
             category,
-            () => OpenMediaAsync(url));
+            () => OpenMediaAsync(
+                url,
+                displayTitle,
+                imageUrl,
+                imageSource,
+                category));
+    }
 
-    private void RebuildRecent()
+    private async Task RebuildRecentAsync(CancellationToken cancellationToken = default)
     {
         Recent.Clear();
-        foreach (var item in _settings.Recent.Take(12))
+        foreach (var item in (await _rezka.GetRecentAsync(cancellationToken)).Take(12))
         {
             if (!Uri.TryCreate(item.Url, UriKind.Absolute, out var url))
             {
@@ -1151,6 +2039,19 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             card => card.Url.AbsoluteUri,
             StringComparer.OrdinalIgnoreCase);
 
+        var latestEntry = snapshot.ContinueWatching.FirstOrDefault();
+        var latestCard = ContinueWatching.FirstOrDefault();
+        ContinueWatchingHero = latestEntry is not null && latestCard is not null
+            ? new ContinueWatchingHeroItem(
+                latestCard,
+                BuildPlaybackPosition(latestEntry),
+                BuildLastViewedLabel(
+                    latestEntry.Date,
+                    latestEntry.DateLabel,
+                    DateOnly.FromDateTime(DateTime.Now)),
+                latestEntry.Details?.Trim() ?? string.Empty)
+            : null;
+
         var existingFolders = BookmarkFolders.ToDictionary(
             folder => folder.Name,
             StringComparer.OrdinalIgnoreCase);
@@ -1203,14 +2104,116 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         Uri? imageUrl,
         string category)
     {
+        var displayTitle = TitleFormatter.Normalize(title);
         if (existing.TryGetValue(url.AbsoluteUri, out var card) &&
-            string.Equals(card.Title, title, StringComparison.Ordinal) &&
+            string.Equals(card.Title, displayTitle, StringComparison.Ordinal) &&
             string.Equals(card.Category, category, StringComparison.Ordinal))
         {
             return card;
         }
 
-        return CreateCard(title, url, imageUrl, category);
+        return CreateCard(displayTitle, url, imageUrl, category);
+    }
+
+    private static string BuildPlaybackPosition(ContinueWatchingEntry entry)
+    {
+        if (!string.IsNullOrWhiteSpace(entry.PlaybackInformation))
+        {
+            return entry.PlaybackInformation.Trim();
+        }
+
+        if (entry.Season is int season && entry.Episode is int episode)
+        {
+            return $"{season} сезон · {episode} серия";
+        }
+
+        if (entry.Episode is int standaloneEpisode)
+        {
+            return $"{standaloneEpisode} серия";
+        }
+
+        if (!string.IsNullOrWhiteSpace(entry.Translator))
+        {
+            return entry.Translator.Trim();
+        }
+
+        return entry.IsWatched
+            ? "Просмотр завершён"
+            : "Последняя сохранённая позиция";
+    }
+
+    internal static string BuildLastViewedLabel(
+        DateOnly? viewedOn,
+        string? sourceLabel,
+        DateOnly today)
+    {
+        var normalizedLabel = sourceLabel?.Trim() ?? string.Empty;
+        if (normalizedLabel.Contains("сегодня", StringComparison.OrdinalIgnoreCase))
+        {
+            viewedOn = today;
+        }
+        else if (normalizedLabel.Contains("позавчера", StringComparison.OrdinalIgnoreCase))
+        {
+            viewedOn = today.AddDays(-2);
+        }
+        else if (normalizedLabel.Contains("вчера", StringComparison.OrdinalIgnoreCase))
+        {
+            viewedOn = today.AddDays(-1);
+        }
+        else if (viewedOn is null)
+        {
+            var formats = new[] { "dd-MM-yyyy", "dd.MM.yyyy", "dd/MM/yyyy", "yyyy-MM-dd" };
+            if (DateOnly.TryParseExact(
+                    normalizedLabel,
+                    formats,
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out var parsedDate))
+            {
+                viewedOn = parsedDate;
+            }
+        }
+
+        if (viewedOn is not { } date)
+        {
+            return string.IsNullOrWhiteSpace(normalizedLabel)
+                ? "Смотрели недавно"
+                : $"Смотрели {normalizedLabel}";
+        }
+
+        if (date == today)
+        {
+            return "Смотрели сегодня";
+        }
+
+        if (date == today.AddDays(-1))
+        {
+            return "Смотрели вчера";
+        }
+
+        if (date == today.AddDays(-2))
+        {
+            return "Смотрели позавчера";
+        }
+
+        var daysSinceMonday = ((int)today.DayOfWeek + 6) % 7;
+        var startOfWeek = today.AddDays(-daysSinceMonday);
+        if (date >= startOfWeek && date <= today)
+        {
+            return "Смотрели на этой неделе";
+        }
+
+        if (date.Year == today.Year && date.Month == today.Month)
+        {
+            return "Смотрели в этом месяце";
+        }
+
+        if (date.Year == today.Year - 1)
+        {
+            return "Смотрели в прошлом году";
+        }
+
+        return $"Смотрели {date:dd.MM.yyyy}";
     }
 
     private static void ReconcileCollection<T, TKey>(
@@ -1280,19 +2283,32 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         AccountLabel = IsPremium ? "Premium" : ProfileName;
     }
 
-    private async Task RunBusyAsync(Func<CancellationToken, Task> action)
+    private async Task RunBusyAsync(
+        Func<CancellationToken, Task> action,
+        bool showActivity = true,
+        CancellationToken cancellationToken = default)
     {
         _operationCancellation?.Cancel();
         _operationCancellation?.Dispose();
-        _operationCancellation = new CancellationTokenSource();
-        IsBusy = true;
+        var operationCancellation = cancellationToken.CanBeCanceled
+            ? CancellationTokenSource.CreateLinkedTokenSource(cancellationToken)
+            : new CancellationTokenSource();
+        _operationCancellation = operationCancellation;
+        IsBusy = showActivity;
         try
         {
-            await action(_operationCancellation.Token);
+            await action(operationCancellation.Token);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Navigation superseded the operation; the destination should stay quiet.
         }
         catch (OperationCanceledException)
         {
-            StatusMessage = "Операция отменена";
+            if (showActivity)
+            {
+                StatusMessage = "Операция отменена";
+            }
         }
         catch (LoginRequiredException)
         {
@@ -1301,16 +2317,46 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
         catch (Exception exception)
         {
-            StatusMessage = ToUserMessage(exception);
+            if (showActivity)
+            {
+                StatusMessage = ToUserMessage(exception);
+            }
         }
         finally
         {
-            IsBusy = false;
+            if (ReferenceEquals(_operationCancellation, operationCancellation))
+            {
+                _operationCancellation = null;
+                if (showActivity)
+                {
+                    IsBusy = false;
+                }
+            }
+
+            operationCancellation.Dispose();
         }
     }
 
-    private void Navigate(Page page)
+    private async Task NavigateAsync(
+        Page page,
+        CancellationToken cancellationToken = default,
+        bool animateEntrance = true)
     {
+        if (_disposed ||
+            page == _currentPage && IsPageVisible(page))
+        {
+            return;
+        }
+
+        _pageNavigationCancellation?.Cancel();
+        _pageNavigationCancellation?.Dispose();
+        var navigationCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            _lifetimeCancellation.Token,
+            cancellationToken);
+        _pageNavigationCancellation = navigationCancellation;
+        var transitionVersion = ++_pageTransitionVersion;
+        var previousPage = _currentPage;
+
         IsProfilePopupOpen = false;
         IsCategoryMenuOpen = false;
         if (page != Page.Library)
@@ -1318,11 +2364,132 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             ActiveCategory = null;
         }
 
+        if (page is not (Page.Details or Page.Player))
+        {
+            CancelDetailsLoad();
+        }
+
+        try
+        {
+            await PlayPageExitAsync(previousPage, navigationCancellation.Token);
+            navigationCancellation.Token.ThrowIfCancellationRequested();
+            if (transitionVersion != _pageTransitionVersion)
+            {
+                return;
+            }
+
+            if (page == Page.Home)
+            {
+                IsHomeLeaving = false;
+                IsHomeEntering = animateEntrance;
+            }
+            else if (page == Page.Details)
+            {
+                IsDetailsLeaving = false;
+                IsDetailsEntering = animateEntrance;
+                IsDetailsHeroSurfaceVisible = false;
+            }
+
+            ShowPage(page);
+            if (page == Page.Details)
+            {
+                _ = RevealDetailsHeroLayersAsync(transitionVersion);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // A newer navigation request superseded this transition.
+        }
+        finally
+        {
+            if (ReferenceEquals(_pageNavigationCancellation, navigationCancellation))
+            {
+                _pageNavigationCancellation = null;
+            }
+
+            navigationCancellation.Dispose();
+        }
+    }
+
+    private async Task PlayPageExitAsync(Page page, CancellationToken cancellationToken)
+    {
+        if (page == Page.Home && IsHomeVisible)
+        {
+            IsHomeEntering = false;
+            IsHomeLeaving = true;
+            await Task.Delay(TimeSpan.FromMilliseconds(320), cancellationToken);
+        }
+        else if (page == Page.Details && IsDetailsVisible)
+        {
+            IsDetailsEntering = false;
+            IsDetailsLeaving = true;
+            IsDetailsHeroSurfaceVisible = false;
+            IsDetailsHeroBackgroundReady = false;
+            await Task.Delay(TimeSpan.FromMilliseconds(540), cancellationToken);
+        }
+    }
+
+    private async Task RevealDetailsHeroLayersAsync(int transitionVersion)
+    {
+        try
+        {
+            await Task.Delay(
+                TimeSpan.FromMilliseconds(20),
+                _lifetimeCancellation.Token);
+            if (transitionVersion != _pageTransitionVersion || !IsDetailsVisible)
+            {
+                return;
+            }
+
+            IsDetailsHeroSurfaceVisible = true;
+            _ = RevealDetailsHeroBackgroundAsync(
+                DetailsImageSource,
+                _detailsRequestVersion,
+                _detailsImageVersion,
+                _lifetimeCancellation.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // The application closed before the next details frame.
+        }
+    }
+
+    private bool IsPageVisible(Page page) => page switch
+    {
+        Page.Home => IsHomeVisible,
+        Page.Library => IsLibraryVisible,
+        Page.Settings => IsSettingsVisible,
+        Page.Details => IsDetailsVisible,
+        Page.Player => IsPlayerVisible,
+        _ => false
+    };
+
+    private void ShowPage(Page page)
+    {
+        _currentPage = page;
         IsHomeVisible = page == Page.Home;
         IsLibraryVisible = page == Page.Library;
         IsSettingsVisible = page == Page.Settings;
         IsDetailsVisible = page == Page.Details;
         IsPlayerVisible = page == Page.Player;
+
+        if (page != Page.Home)
+        {
+            IsHomeLeaving = false;
+        }
+
+        if (page != Page.Details)
+        {
+            IsDetailsLeaving = false;
+        }
+    }
+
+    private void CancelDetailsLoad()
+    {
+        var cancellation = _detailsLoadCancellation;
+        _detailsLoadCancellation = null;
+        cancellation?.Cancel();
+        cancellation?.Dispose();
     }
 
     private void ResetStartupState()
@@ -1515,7 +2682,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             IsMirrorCheckRunning = false;
         }
 
-        var sessionMirror = FindRestorableSessionMirror(_settings, MirrorStatuses);
+        var sessionMirror = FindRestorableSessionMirror(_settings, _auth, MirrorStatuses);
         if (sessionMirror is not null)
         {
             IsAutoMirrorSelection = false;
@@ -1530,10 +2697,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     internal static MirrorStatusItem? FindRestorableSessionMirror(
         AppSettings settings,
+        AuthState auth,
         IEnumerable<MirrorStatusItem> mirrors)
     {
         if (!settings.RememberSession
-            || settings.AuthenticationCookies.Count == 0
+            || auth.Cookies.Count == 0
             || string.IsNullOrWhiteSpace(settings.Origin))
         {
             return null;
@@ -1663,10 +2831,20 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         _librarySync.SyncFailed -= OnLibrarySyncFailed;
         CancelLoginStatusDismissal();
         CancelMirrorStatusDismissal();
+        CancelDetailsLoad();
+        _pageNavigationCancellation?.Cancel();
+        _pageNavigationCancellation?.Dispose();
         _operationCancellation?.Cancel();
         _operationCancellation?.Dispose();
         _lifetimeCancellation.Dispose();
     }
+
+    private sealed record DetailsOpenRequest(
+        Uri Url,
+        string PreviewTitle,
+        Uri? PreviewImageUrl,
+        Task<Bitmap?> PreviewImageSource,
+        string PreviewCategory);
 
     private enum Page
     {

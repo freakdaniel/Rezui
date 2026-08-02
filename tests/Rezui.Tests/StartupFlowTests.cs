@@ -173,8 +173,11 @@ public sealed class StartupFlowTests
     {
         var settings = new AppSettings
         {
-            Origin = "https://rezka.fi",
-            AuthenticationCookies =
+            Origin = "https://rezka.fi"
+        };
+        var auth = new AuthState
+        {
+            Cookies =
             {
                 ["dle_user_id"] = "user-id",
                 ["dle_password"] = "password-hash"
@@ -197,6 +200,7 @@ public sealed class StartupFlowTests
 
         var selected = MainWindowViewModel.FindRestorableSessionMirror(
             settings,
+            auth,
             new[] { fastest, saved });
 
         Assert.Same(saved, selected);

@@ -55,9 +55,9 @@
       <SolidColorBrush x:Key="Brush.Text.OnContrast" Color="{StaticResource Color.Text.OnContrast}" />
       <SolidColorBrush x:Key="Brush.TopBar.Accent" Color="{StaticResource Color.TopBar.Accent}" />
       <SolidColorBrush x:Key="Brush.TopBar.Accent.Soft" Color="{StaticResource Color.TopBar.Accent.Soft}" />
+      <SolidColorBrush x:Key="Brush.ContinueHero.Position" Color="#24FFFFFF" />
       <Color x:Key="Color.Scrim">#99101011</Color>
       <Color x:Key="Color.Player.Chrome">#FF171719</Color>
-      <Color x:Key="Color.TopMask.Tint">#38F3F3F4</Color>
     </ResourceDictionary>
     <ResourceDictionary x:Key="Dark">
       <Color x:Key="Color.App.Background">#FF0D0D0E</Color>
@@ -84,9 +84,9 @@
       <SolidColorBrush x:Key="Brush.Text.OnContrast" Color="{StaticResource Color.Text.OnContrast}" />
       <SolidColorBrush x:Key="Brush.TopBar.Accent" Color="{StaticResource Color.TopBar.Accent}" />
       <SolidColorBrush x:Key="Brush.TopBar.Accent.Soft" Color="{StaticResource Color.TopBar.Accent.Soft}" />
+      <SolidColorBrush x:Key="Brush.ContinueHero.Position" Color="#FF242426" />
       <Color x:Key="Color.Scrim">#CC080809</Color>
       <Color x:Key="Color.Player.Chrome">#FF101011</Color>
-      <Color x:Key="Color.TopMask.Tint">#460D0D0E</Color>
     </ResourceDictionary>
   </ResourceDictionary.ThemeDictionaries>
 
@@ -108,5 +108,4 @@
   <SolidColorBrush x:Key="Brush.Danger" Color="{StaticResource Color.Danger}" />
   <SolidColorBrush x:Key="Brush.Scrim" Color="{DynamicResource Color.Scrim}" />
   <SolidColorBrush x:Key="Brush.Player.Chrome" Color="{DynamicResource Color.Player.Chrome}" />
-  <SolidColorBrush x:Key="Brush.TopMask.Tint" Color="{DynamicResource Color.TopMask.Tint}" />
 </ResourceDictionary>
