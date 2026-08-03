@@ -52,6 +52,30 @@ public sealed class SettingsServiceTests
     }
 
     [Fact]
+    public async Task SaveAndLoadPreservesAValidatedPersonalMediaList()
+    {
+        using var directory = new TemporaryDirectory();
+        var service = new SettingsService(directory.Path);
+        var settings = new AppSettings
+        {
+            PinnedMediaUrls =
+            [
+                "https://example.com/films/one.html",
+                "https://example.com/films/one.html",
+                "not a url"
+            ]
+        };
+
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await service.SaveAsync(settings, cancellationToken);
+        var restored = await service.LoadAsync(cancellationToken);
+
+        Assert.Equal(
+            ["https://example.com/films/one.html"],
+            restored.PinnedMediaUrls);
+    }
+
+    [Fact]
     public async Task AuthenticationCookiesUseDedicatedAuthFile()
     {
         using var directory = new TemporaryDirectory();

@@ -1,9 +1,12 @@
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Net.Mail;
 using Avalonia;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -25,6 +28,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private const double DetailsHeroTitleTargetLines = 1.56;
     private const double DetailsHeroTitleMinimumFontSize = 28;
     private const double DetailsHeroTitleMaximumFontSize = 38;
+    private static readonly ConcurrentDictionary<string, DeferredImageSource> MoodArtworkSources =
+        new(StringComparer.Ordinal);
 
     private const string LoginPrompt =
         "Войдите в приложение используя свой персональный аккаунт HDRezka";
@@ -82,10 +87,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
         QuickSearches =
         [
-            new QuickSearchItem("Новинки", "новинки"),
-            new QuickSearchItem("Фантастика", "фантастика"),
-            new QuickSearchItem("Детективы", "детектив"),
-            new QuickSearchItem("Аниме", "аниме")
+            CreateMood("Новинки", "новинки", "Свежие", "#5B50D6", "pencil", 0),
+            CreateMood("Фантастика", "фантастика", "Безграничная", "#276B9D", "bulb", 1),
+            CreateMood("Детективы", "детектив", "Запутанные", "#8B566E", "fingerprint", 2),
+            CreateMood("Аниме", "аниме", "Яркое", "#B65F75", "cat", 3),
+            CreateMood("Комедии", "комедия", "Лёгкие", "#B27732", "lion", 0),
+            CreateMood("Триллеры", "триллер", "Напряжённые", "#7C443F", "fedora", 1),
+            CreateMood("Семейное", "семейный", "Тёплое", "#3D7B68", "home", 2),
+            CreateMood("Документальное", "документальный", "Честное", "#426887", "book", 3)
         ];
 
         FilmsMenu = CreateCategoryMenu(
@@ -158,6 +167,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     public ObservableCollection<MediaCardItem> Results { get; } = [];
 
     public ObservableCollection<MediaCardItem> Recent { get; } = [];
+
+    public ObservableCollection<HomeMediaCardItem> HomeCollectionCards { get; } = [];
 
     public ObservableCollection<MediaCardItem> ContinueWatching { get; } = [];
 
@@ -2300,6 +2311,108 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             Uri.TryCreate(item.ImageUrl, UriKind.Absolute, out var image);
             Recent.Add(CreateCard(item.Title, url, image, item.Category));
         }
+
+        RebuildHomeHistory();
+    }
+
+    private void RebuildHomeHistory()
+    {
+        HomeCollectionCards.Clear();
+
+        foreach (var card in Recent
+            .Select((card, index) => new HomeMediaCardItem(
+                card,
+                index,
+                _settings.PinnedMediaUrls.Contains(
+                    card.Url.AbsoluteUri,
+                    StringComparer.OrdinalIgnoreCase),
+                LoadHomeCardMetadataAsync,
+                ToggleHomeCardSavedAsync)))
+        {
+            HomeCollectionCards.Add(card);
+        }
+
+        ApplyHomePlaybackProgress();
+    }
+
+    private void ApplyHomePlaybackProgress()
+    {
+        var hero = ContinueWatchingHero;
+        foreach (var card in EnumerateHomeCards())
+        {
+            card.ProgressLabel = hero is not null &&
+                                 string.Equals(
+                                     card.Url.AbsoluteUri,
+                                     ContinueWatching.FirstOrDefault()?.Url.AbsoluteUri,
+                                     StringComparison.OrdinalIgnoreCase)
+                ? $"Продолжить · {hero.PlaybackPosition}"
+                : string.Empty;
+        }
+    }
+
+    private IEnumerable<HomeMediaCardItem> EnumerateHomeCards()
+    {
+        foreach (var card in HomeCollectionCards)
+        {
+            yield return card;
+        }
+    }
+
+    private async Task LoadHomeCardMetadataAsync(HomeMediaCardItem card)
+    {
+        try
+        {
+            var metadata = await _rezka.GetCachedMediaMetadataAsync(
+                card.Url,
+                _lifetimeCancellation.Token);
+            if (metadata is not null && !_disposed)
+            {
+                card.ApplyMetadata(metadata);
+            }
+        }
+        catch (OperationCanceledException) when (_disposed)
+        {
+            // A hover metadata read may still be in flight while the window closes.
+        }
+    }
+
+    private async Task ToggleHomeCardSavedAsync(HomeMediaCardItem card)
+    {
+        var url = card.Url.AbsoluteUri;
+        var wasSaved = card.IsSaved;
+        var existing = _settings.PinnedMediaUrls.FindIndex(
+            item => string.Equals(item, url, StringComparison.OrdinalIgnoreCase));
+        if (existing >= 0)
+        {
+            _settings.PinnedMediaUrls.RemoveAt(existing);
+            card.IsSaved = false;
+        }
+        else
+        {
+            _settings.PinnedMediaUrls.Add(url);
+            card.IsSaved = true;
+        }
+
+        try
+        {
+            await _settingsService.SaveAsync(_settings, _lifetimeCancellation.Token);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            card.IsSaved = wasSaved;
+            if (wasSaved)
+            {
+                _settings.PinnedMediaUrls.Add(url);
+            }
+            else
+            {
+                _settings.PinnedMediaUrls.RemoveAll(
+                    item => string.Equals(item, url, StringComparison.OrdinalIgnoreCase));
+            }
+
+            StatusMessage = "Не удалось обновить «Мой список»";
+            _logger.Warning(exception, "Could not persist the personal media list");
+        }
     }
 
     public void RequestLibraryRefresh(LibrarySyncReason reason)
@@ -2395,6 +2508,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                     DateOnly.FromDateTime(DateTime.Now)),
                 latestEntry.Details?.Trim() ?? string.Empty)
             : null;
+        ApplyHomePlaybackProgress();
 
         var existingFolders = BookmarkFolders.ToDictionary(
             folder => folder.Name,
@@ -3318,6 +3432,35 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             menuColumns);
     }
 
+    private static QuickSearchItem CreateMood(
+        string title,
+        string query,
+        string caption,
+        string color,
+        string artworkKey,
+        int motionVariant) =>
+        new(
+            title,
+            query,
+            caption,
+            new SolidColorBrush(Color.Parse(color)),
+            CreateMoodArtwork(artworkKey),
+            artworkKey,
+            motionVariant);
+
+    private static DeferredImageSource CreateMoodArtwork(string artworkKey) =>
+        MoodArtworkSources.GetOrAdd(
+            artworkKey,
+            static key => new DeferredImageSource(() =>
+            {
+                var uri = new Uri($"avares://Rezui/Assets/3D/{key}.png");
+                using var stream = AssetLoader.Open(uri);
+                return Task.FromResult<Bitmap?>(Bitmap.DecodeToWidth(
+                    stream,
+                    216,
+                    BitmapInterpolationMode.HighQuality));
+            }));
+
     private static string GetInitials(string value)
     {
         var parts = value
@@ -3392,4 +3535,49 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     }
 }
 
-public sealed record QuickSearchItem(string Title, string Query);
+public sealed record QuickSearchItem(
+    string Title,
+    string Query,
+    string Caption,
+    IBrush AccentBrush,
+    DeferredImageSource ArtworkSource,
+    string ArtworkKey,
+    int MotionVariant)
+{
+    private static readonly FontFamily MoodLabelFont = new(
+        OperatingSystem.IsLinux()
+            ? "Noto Sans"
+            : OperatingSystem.IsWindows()
+                ? "Segoe UI"
+                : "Helvetica Neue");
+
+    public FontFamily LabelFontFamily => MoodLabelFont;
+
+    public string InlineTitle => Title.ToLowerInvariant();
+
+    public string MoodLabel => $"{Caption} {InlineTitle}";
+
+    public bool IsOrbitMotion => MotionVariant == 0;
+
+    public bool IsSweepMotion => MotionVariant == 1;
+
+    public bool IsRippleMotion => MotionVariant == 2;
+
+    public bool IsDriftMotion => MotionVariant == 3;
+
+    public bool IsPencilArtwork => ArtworkKey == "pencil";
+
+    public bool IsBookArtwork => ArtworkKey == "book";
+
+    public bool IsHomeArtwork => ArtworkKey == "home";
+
+    public bool IsFedoraArtwork => ArtworkKey == "fedora";
+
+    public bool IsCatArtwork => ArtworkKey == "cat";
+
+    public bool IsFingerprintArtwork => ArtworkKey == "fingerprint";
+
+    public bool IsLionArtwork => ArtworkKey == "lion";
+
+    public bool IsBulbArtwork => ArtworkKey == "bulb";
+}

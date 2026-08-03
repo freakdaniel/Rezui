@@ -387,3 +387,172 @@ public sealed class MediaCardItem
 
     public IAsyncRelayCommand OpenCommand { get; }
 }
+
+public interface IMasonryItem
+{
+    double MasonryHeight { get; }
+}
+
+public sealed partial class HomeMediaCardItem : ObservableObject, IMasonryItem
+{
+    private static readonly Color[] AccentColors =
+    [
+        Color.Parse("#7C6CFF"),
+        Color.Parse("#48A9FF"),
+        Color.Parse("#E46F92"),
+        Color.Parse("#E29A4A"),
+        Color.Parse("#5DC8A8"),
+        Color.Parse("#A879E8")
+    ];
+
+    private readonly Func<HomeMediaCardItem, Task> _loadMetadata;
+    private readonly Func<HomeMediaCardItem, Task> _toggleSaved;
+    private bool _metadataRequested;
+
+    public HomeMediaCardItem(
+        MediaCardItem media,
+        int position,
+        bool isSaved,
+        Func<HomeMediaCardItem, Task> loadMetadata,
+        Func<HomeMediaCardItem, Task> toggleSaved)
+    {
+        Media = media;
+        Position = position;
+        _isSaved = isSaved;
+        _loadMetadata = loadMetadata;
+        _toggleSaved = toggleSaved;
+        AccentBrush = new SolidColorBrush(
+            AccentColors[(uint)StringComparer.OrdinalIgnoreCase.GetHashCode(media.Title) % AccentColors.Length]);
+        LoadMetadataCommand = new AsyncRelayCommand(LoadMetadataOnceAsync);
+        ToggleSavedCommand = new AsyncRelayCommand(ToggleSavedAsync);
+    }
+
+    public MediaCardItem Media { get; }
+
+    public int Position { get; }
+
+    public string Title => Media.Title;
+
+    public Uri Url => Media.Url;
+
+    public DeferredImageSource ImageSource => Media.ImageSource;
+
+    public string Category => Media.Category;
+
+    public IAsyncRelayCommand OpenCommand => Media.OpenCommand;
+
+    public IAsyncRelayCommand LoadMetadataCommand { get; }
+
+    public IAsyncRelayCommand ToggleSavedCommand { get; }
+
+    public IBrush AccentBrush { get; }
+
+    public bool IsLarge => (Position + 1) % 5 == 0;
+
+    public double CardWidth => IsLarge ? 238 : 190;
+
+    public double PosterHeight => CardWidth * 1.5;
+
+    public double MasonryHeight => (Position % 8) switch
+    {
+        0 => 330,
+        1 => 356,
+        2 => 310,
+        3 => 342,
+        4 => 390,
+        5 => 318,
+        6 => 366,
+        _ => 336
+    };
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SavedIcon))]
+    [NotifyPropertyChangedFor(nameof(SavedLabel))]
+    private bool _isSaved;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasRating))]
+    private string _ratingLabel = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasYear))]
+    private string _yearLabel = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasDuration))]
+    private string _durationLabel = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasQuality))]
+    private string _qualityLabel = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasAgeRating))]
+    private string _ageRatingLabel = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasEpisodeCount))]
+    private string _episodeCountLabel = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasProgress))]
+    private string _progressLabel = string.Empty;
+
+    public string SavedIcon => IsSaved ? "check" : "add";
+
+    public string SavedLabel => IsSaved ? "В списке" : "В мой список";
+
+    public bool HasRating => !string.IsNullOrEmpty(RatingLabel);
+
+    public bool HasYear => !string.IsNullOrEmpty(YearLabel);
+
+    public bool HasDuration => !string.IsNullOrEmpty(DurationLabel);
+
+    public bool HasQuality => !string.IsNullOrEmpty(QualityLabel);
+
+    public bool HasAgeRating => !string.IsNullOrEmpty(AgeRatingLabel);
+
+    public bool HasEpisodeCount => !string.IsNullOrEmpty(EpisodeCountLabel);
+
+    public bool HasProgress => !string.IsNullOrEmpty(ProgressLabel);
+
+    public void ApplyMetadata(CachedMediaMetadata metadata)
+    {
+        RatingLabel = metadata.Rating is double rating
+            ? rating.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)
+            : string.Empty;
+        YearLabel = metadata.ReleaseYear?.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    ?? string.Empty;
+        DurationLabel = metadata.DurationSeconds is > 0
+            ? FormatDuration(TimeSpan.FromSeconds(metadata.DurationSeconds.Value))
+            : string.Empty;
+        QualityLabel = metadata.Quality?.Trim() ?? string.Empty;
+        AgeRatingLabel = metadata.AgeRating?.Trim() ?? string.Empty;
+        var episodes = metadata.Schedule
+            .Select(item => (item.Season, item.Episode))
+            .Distinct()
+            .Count();
+        EpisodeCountLabel = episodes > 0 ? $"{episodes} серий" : string.Empty;
+    }
+
+    private async Task LoadMetadataOnceAsync()
+    {
+        if (_metadataRequested)
+        {
+            return;
+        }
+
+        _metadataRequested = true;
+        await _loadMetadata(this);
+    }
+
+    private Task ToggleSavedAsync() => _toggleSaved(this);
+
+    private static string FormatDuration(TimeSpan duration)
+    {
+        var totalMinutes = Math.Max(1, (int)Math.Round(duration.TotalMinutes));
+        return totalMinutes >= 60
+            ? $"{totalMinutes / 60} ч {totalMinutes % 60:D2} мин"
+            : $"{totalMinutes} мин";
+    }
+}

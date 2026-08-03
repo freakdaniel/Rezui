@@ -56,7 +56,8 @@ public sealed class SettingsService
                 Origin = legacy.Origin,
                 Theme = legacy.Theme,
                 RememberSession = legacy.RememberSession,
-                CustomMirrors = legacy.CustomMirrors ?? []
+                CustomMirrors = legacy.CustomMirrors ?? [],
+                PinnedMediaUrls = legacy.PinnedMediaUrls ?? []
             });
 
             var hasLegacyPayload = legacy.AuthenticationCookies?.Count > 0 ||
@@ -180,6 +181,10 @@ public sealed class SettingsService
             .Where(origin => !string.IsNullOrWhiteSpace(origin))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+        settings.PinnedMediaUrls = (settings.PinnedMediaUrls ?? [])
+            .Where(url => Uri.TryCreate(url, UriKind.Absolute, out _))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
         return settings;
     }
 
@@ -212,6 +217,8 @@ public sealed class SettingsService
         public bool RememberSession { get; set; } = true;
 
         public List<string>? CustomMirrors { get; set; }
+
+        public List<string>? PinnedMediaUrls { get; set; }
 
         public Dictionary<string, string>? AuthenticationCookies { get; set; }
 

@@ -9,6 +9,8 @@ public sealed class AppSettings
     public bool RememberSession { get; set; } = true;
 
     public List<string> CustomMirrors { get; set; } = [];
+
+    public List<string> PinnedMediaUrls { get; set; } = [];
 }
 
 public sealed class AuthState

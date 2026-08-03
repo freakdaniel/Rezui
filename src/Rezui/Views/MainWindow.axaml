@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:controls="clr-namespace:Rezui.Controls"
     xmlns:layout="clr-namespace:Avalonia.Layout;assembly=Avalonia.Controls.ItemsRepeater"
     xmlns:models="clr-namespace:Rezui.Models"
     xmlns:transitions="clr-namespace:Rezui.Transitions"
@@ -71,6 +72,252 @@
         </StackPanel>
       </Button>
     </DataTemplate>
+    <DataTemplate x:Key="HomeMoodCardTemplate" x:DataType="vm:QuickSearchItem">
+      <Grid
+          Width="156"
+          Height="156"
+          Margin="0,0,14,14">
+        <Button
+            Padding="0"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            Classes="home-mood-card"
+            Classes.orbit="{Binding IsOrbitMotion}"
+            Classes.sweep="{Binding IsSweepMotion}"
+            Classes.ripple="{Binding IsRippleMotion}"
+            Classes.drift="{Binding IsDriftMotion}"
+            Classes.pencil="{Binding IsPencilArtwork}"
+            Classes.book="{Binding IsBookArtwork}"
+            Classes.home="{Binding IsHomeArtwork}"
+            Classes.fedora="{Binding IsFedoraArtwork}"
+            Classes.cat="{Binding IsCatArtwork}"
+            Classes.fingerprint="{Binding IsFingerprintArtwork}"
+            Classes.lion="{Binding IsLionArtwork}"
+            Classes.bulb="{Binding IsBulbArtwork}"
+            Command="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).QuickSearchCommand}"
+            CommandParameter="{Binding Query}">
+          <Border
+              Background="{Binding AccentBrush}"
+              Classes="home-mood-surface"
+              CornerRadius="26"
+              ClipToBounds="True"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch">
+            <Grid>
+              <Image
+                  Width="112"
+                  Height="112"
+                  Margin="0,3,-3,0"
+                  HorizontalAlignment="Right"
+                  VerticalAlignment="Top"
+                  Classes="home-mood-artwork"
+                  IsHitTestVisible="False"
+                  Source="{Binding ArtworkSource.Value^}"
+                  Stretch="Uniform" />
+              <Border Classes="home-mood-wash" IsHitTestVisible="False" />
+            </Grid>
+          </Border>
+        </Button>
+        <TextBlock
+            MaxHeight="42"
+            Margin="15,0,15,14"
+            VerticalAlignment="Bottom"
+            Classes="home-mood-label"
+            FontFamily="{Binding LabelFontFamily}"
+            FontSize="15"
+            IsHitTestVisible="False"
+            LineHeight="19"
+            TextTrimming="CharacterEllipsis"
+            TextWrapping="Wrap">
+          <TextBlock.Inlines><Run Foreground="#D9FFFFFF" FontWeight="Medium" Text="{Binding Caption}" /><Run Text=" " /><Run Foreground="White" FontWeight="Bold" Text="{Binding InlineTitle}" /></TextBlock.Inlines>
+        </TextBlock>
+      </Grid>
+    </DataTemplate>
+    <DataTemplate x:Key="HomePosterCardTemplate" x:DataType="models:HomeMediaCardItem">
+      <Grid
+          Height="{Binding MasonryHeight}"
+          Classes="home-media-card"
+          PointerEntered="HomeCard_OnPointerEntered"
+          PointerMoved="HomeCard_OnPointerMoved"
+          PointerExited="HomeCard_OnPointerExited"
+          RenderTransformOrigin="50%,50%">
+        <Grid.RenderTransform>
+          <TransformGroup>
+            <ScaleTransform ScaleX="1" ScaleY="1">
+              <ScaleTransform.Transitions>
+                <Transitions>
+                  <DoubleTransition Property="ScaleX" Duration="0:0:0.09" />
+                  <DoubleTransition Property="ScaleY" Duration="0:0:0.09" />
+                </Transitions>
+              </ScaleTransform.Transitions>
+            </ScaleTransform>
+            <Rotate3DTransform AngleX="0" AngleY="0" AngleZ="0" Depth="850">
+              <Rotate3DTransform.Transitions>
+                <Transitions>
+                  <DoubleTransition Property="AngleX" Duration="0:0:0.09" />
+                  <DoubleTransition Property="AngleY" Duration="0:0:0.09" />
+                  <DoubleTransition Property="AngleZ" Duration="0:0:0.12" />
+                </Transitions>
+              </Rotate3DTransform.Transitions>
+            </Rotate3DTransform>
+            <TranslateTransform>
+              <TranslateTransform.Transitions>
+                <Transitions>
+                  <DoubleTransition Property="X" Duration="0:0:0.09" />
+                  <DoubleTransition Property="Y" Duration="0:0:0.09" />
+                </Transitions>
+              </TranslateTransform.Transitions>
+            </TranslateTransform>
+          </TransformGroup>
+        </Grid.RenderTransform>
+
+        <Border
+            Background="{DynamicResource Brush.Surface.Secondary}"
+            BorderThickness="0"
+            BoxShadow="0 16 34 0 #52000000"
+            Classes="home-card-frame"
+            CornerRadius="0"
+            ClipToBounds="True">
+          <Grid>
+            <Border Classes="home-card-skeleton" />
+            <Image
+                Margin="-4"
+                Classes="home-card-poster"
+                RenderTransformOrigin="50%,50%"
+                Source="{Binding ImageSource.Value^}"
+                Stretch="UniformToFill">
+              <Image.RenderTransform>
+                <TransformGroup>
+                  <ScaleTransform ScaleX="1.045" ScaleY="1.045" />
+                  <TranslateTransform>
+                    <TranslateTransform.Transitions>
+                      <Transitions>
+                        <DoubleTransition Property="X" Duration="0:0:0.11" />
+                        <DoubleTransition Property="Y" Duration="0:0:0.11" />
+                      </Transitions>
+                    </TranslateTransform.Transitions>
+                  </TranslateTransform>
+                </TransformGroup>
+              </Image.RenderTransform>
+            </Image>
+            <Border Classes="home-card-inner-light" IsHitTestVisible="False" />
+
+            <Button
+                Padding="0"
+                Background="Transparent"
+                BorderThickness="0"
+                Classes="home-card-open"
+                Command="{Binding OpenCommand}"
+                Cursor="Hand"
+                HorizontalContentAlignment="Stretch"
+                VerticalContentAlignment="Stretch"
+                AutomationProperties.Name="{Binding Title}" />
+
+            <Border
+                VerticalAlignment="Bottom"
+                Classes="home-card-caption"
+                IsHitTestVisible="False">
+              <StackPanel Margin="16,62,16,15" Spacing="5">
+                <TextBlock
+                    Foreground="#D6FFFFFF"
+                    FontSize="10"
+                    FontWeight="Bold"
+                    LetterSpacing="0.7"
+                    Text="{Binding Category}" />
+                <TextBlock
+                    MaxHeight="44"
+                    Foreground="White"
+                    FontSize="15"
+                    FontWeight="SemiBold"
+                    LineHeight="19"
+                    Text="{Binding Title}"
+                    TextTrimming="CharacterEllipsis"
+                    TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+
+            <Border
+                VerticalAlignment="Bottom"
+                Background="#C818181D"
+                BorderThickness="0"
+                Classes="home-card-overlay"
+                CornerRadius="0">
+              <StackPanel Margin="14,13,14,14" Spacing="10">
+                <Grid ColumnDefinitions="*,Auto">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Classes="symbol filled home-rating-star" Text="star" IsVisible="{Binding HasRating}" />
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        Foreground="White"
+                        FontSize="12"
+                        FontWeight="Bold"
+                        IsVisible="{Binding HasRating}"
+                        Text="{Binding RatingLabel}" />
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        Foreground="#AFFFFFFF"
+                        FontSize="11"
+                        IsVisible="{Binding HasYear}"
+                        Text="{Binding YearLabel}" />
+                  </StackPanel>
+                  <Border
+                      Grid.Column="1"
+                      Padding="7,3"
+                      Background="#20FFFFFF"
+                      CornerRadius="6"
+                      IsVisible="{Binding HasQuality}">
+                    <TextBlock Foreground="White" FontSize="9" FontWeight="Bold" Text="{Binding QualityLabel}" />
+                  </Border>
+                </Grid>
+
+                <StackPanel IsVisible="{Binding HasProgress}" Spacing="5">
+                  <TextBlock
+                      Foreground="#D8FFFFFF"
+                      FontSize="10"
+                      FontWeight="SemiBold"
+                      Text="{Binding ProgressLabel}"
+                      TextTrimming="CharacterEllipsis" />
+                  <Grid Height="2" ColumnDefinitions="2*,3*">
+                    <Border Background="{Binding AccentBrush}" CornerRadius="1" />
+                    <Border Grid.Column="1" Background="#28FFFFFF" CornerRadius="1" />
+                  </Grid>
+                </StackPanel>
+
+                <WrapPanel>
+                  <TextBlock Classes="home-card-fact" IsVisible="{Binding HasDuration}" Text="{Binding DurationLabel}" />
+                  <TextBlock Classes="home-card-fact" IsVisible="{Binding HasEpisodeCount}" Text="{Binding EpisodeCountLabel}" />
+                  <TextBlock Classes="home-card-fact" IsVisible="{Binding HasAgeRating}" Text="{Binding AgeRatingLabel}" />
+                  <TextBlock Classes="home-card-fact" IsVisible="{Binding !HasDuration}" Text="{Binding Category}" />
+                </WrapPanel>
+
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                  <Button
+                      Width="38"
+                      Height="38"
+                      Padding="0"
+                      Classes="home-card-play"
+                      Command="{Binding OpenCommand}">
+                    <TextBlock Classes="symbol filled" FontSize="23" Text="play_arrow" />
+                  </Button>
+                  <Button
+                      Grid.Column="1"
+                      Height="38"
+                      Padding="11,0"
+                      Classes="home-card-add"
+                      Command="{Binding ToggleSavedCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                      <TextBlock Classes="symbol" FontSize="18" Text="{Binding SavedIcon}" />
+                      <TextBlock VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold" Text="{Binding SavedLabel}" />
+                    </StackPanel>
+                  </Button>
+                </Grid>
+              </StackPanel>
+            </Border>
+          </Grid>
+        </Border>
+      </Grid>
+    </DataTemplate>
+
     <DataTemplate x:Key="CommentNodeTemplate" x:DataType="models:CommentNodeItem">
       <Grid
           Classes="comment-node"
@@ -463,11 +710,11 @@
             Classes.leaving="{Binding IsHomeLeaving}"
             IsVisible="{Binding IsHomeVisible}">
           <StackPanel
-              MaxWidth="1120"
-              Margin="28,126,28,56"
+              MaxWidth="1240"
+              Margin="36,126,36,72"
               HorizontalAlignment="Center"
               Classes="home-content"
-              Spacing="32">
+              Spacing="42">
             <StackPanel.RenderTransform>
               <TransformGroup>
                 <ScaleTransform />
@@ -475,7 +722,7 @@
               </TransformGroup>
             </StackPanel.RenderTransform>
             <Border
-                Height="284"
+                Height="352"
                 Background="{DynamicResource Brush.Surface.Hero}"
                 Classes="home-hero"
                 CornerRadius="24"
@@ -494,7 +741,7 @@
                   Content="{Binding ContinueWatchingHero}">
                 <ContentControl.ContentTemplate>
                   <DataTemplate x:DataType="models:ContinueWatchingHeroItem">
-                    <Grid Height="284" ClipToBounds="True">
+                    <Grid Height="352" ClipToBounds="True">
                       <Image
                           Classes="continue-hero-background"
                           Opacity="0.96"
@@ -511,25 +758,27 @@
                           <BlurEffect Radius="46" />
                         </Image.Effect>
                       </Image>
-                      <Border Background="#B8111114" />
+                      <Border Background="#9F111114" />
                       <Border>
                         <Border.Background>
                           <LinearGradientBrush StartPoint="0%,50%" EndPoint="100%,50%">
-                            <GradientStop Color="#F2111114" Offset="0" />
-                            <GradientStop Color="#D9111114" Offset="0.52" />
-                            <GradientStop Color="#9C111114" Offset="1" />
+                            <GradientStop Color="#FA111114" Offset="0" />
+                            <GradientStop Color="#E2111114" Offset="0.50" />
+                            <GradientStop Color="#74111114" Offset="1" />
                           </LinearGradientBrush>
                         </Border.Background>
                       </Border>
 
-                      <Grid Margin="28" ColumnDefinitions="138,*">
+                      <Grid Margin="34" ColumnDefinitions="188,*">
                         <Border
-                            Width="138"
-                            Height="208"
+                            Width="188"
+                            Height="282"
                             VerticalAlignment="Center"
                             Background="#2FFFFFFF"
-                            CornerRadius="16"
-                            BoxShadow="0 16 36 0 #66000000"
+                            BorderBrush="#2FFFFFFF"
+                            BorderThickness="1"
+                            CornerRadius="22"
+                            BoxShadow="0 24 54 0 #8A000000"
                             ClipToBounds="True">
                           <Grid>
                             <TextBlock
@@ -545,16 +794,16 @@
 
                         <Grid
                             Grid.Column="1"
-                            Margin="24,10,0,10"
+                            Margin="32,14,0,14"
                             RowDefinitions="Auto,*,Auto">
                           <Grid ColumnDefinitions="*,Auto">
                             <StackPanel Spacing="8">
                               <TextBlock
                                   MaxHeight="82"
                                   Foreground="White"
-                                  FontSize="34"
+                                  FontSize="40"
                                   FontWeight="SemiBold"
-                                  LineHeight="40"
+                                  LineHeight="46"
                                   SizeChanged="ContinueTitle_OnSizeChanged"
                                   Text="{Binding Title}"
                                   TextTrimming="CharacterEllipsis"
@@ -594,8 +843,7 @@
                             <Button
                                 Classes="continue-hero-action"
                                 Command="{Binding OpenCommand}"
-                                AutomationProperties.Name="Продолжить просмотр"
-                                ToolTip.Tip="Продолжить просмотр">
+                                AutomationProperties.Name="Продолжить просмотр">
                               <TextBlock
                                   Classes="symbol filled"
                                   FontSize="27"
@@ -603,7 +851,7 @@
                             </Button>
                             <StackPanel
                                 Grid.Column="1"
-                                MaxWidth="380"
+                                  MaxWidth="460"
                                 Margin="14,0,0,0"
                                 VerticalAlignment="Center"
                                 Spacing="2">
@@ -613,7 +861,7 @@
                                   FontWeight="SemiBold"
                                   Text="Продолжить просмотр" />
                               <TextBlock
-                                  MaxWidth="290"
+                                  MaxWidth="360"
                                   Foreground="White"
                                   FontSize="12"
                                   FontWeight="SemiBold"
@@ -630,8 +878,8 @@
             </Border>
 
             <Border
-                MinHeight="220"
-                Padding="32"
+                MinHeight="280"
+                Padding="42"
                 Background="{DynamicResource Brush.Surface.Hero}"
                 Classes="home-hero"
                 CornerRadius="24"
@@ -666,9 +914,9 @@
               </Grid>
             </Border>
 
-            <StackPanel Classes="home-quick" Spacing="14">
+            <StackPanel Classes="home-quick" Spacing="16">
               <StackPanel.RenderTransform><TranslateTransform /></StackPanel.RenderTransform>
-              <TextBlock Classes="h2" Text="Быстрый выбор" />
+              <TextBlock Classes="h1" Text="Выбрать настроение" />
               <ItemsControl ItemsSource="{Binding QuickSearches}">
                 <ItemsControl.ItemsPanel>
                   <ItemsPanelTemplate>
@@ -676,26 +924,17 @@
                   </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
-                  <DataTemplate x:DataType="vm:QuickSearchItem">
-                    <Button
-                        Margin="0,0,10,8"
-                        Classes="ghost"
-                        Command="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).QuickSearchCommand}"
-                        CommandParameter="{Binding Query}">
-                      <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBlock Classes="symbol" Text="search" />
-                        <TextBlock Text="{Binding Title}" />
-                      </StackPanel>
-                    </Button>
-                  </DataTemplate>
+                  <StaticResource ResourceKey="HomeMoodCardTemplate" />
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
             </StackPanel>
 
-            <StackPanel Classes="home-recent" Spacing="14">
+            <StackPanel Classes="home-recent" Spacing="22">
               <StackPanel.RenderTransform><TranslateTransform /></StackPanel.RenderTransform>
               <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Classes="h2" Text="Недавно открывали" />
+                <StackPanel Spacing="5">
+                  <TextBlock Classes="h1" Text="Недавно открывали" />
+                </StackPanel>
                 <Button
                     Grid.Column="1"
                     Padding="12,7"
@@ -707,31 +946,40 @@
                   </StackPanel>
                 </Button>
               </Grid>
-              <ItemsRepeater
-                  ClipToBounds="False"
-                  HorizontalCacheLength="1"
-                  ItemTemplate="{StaticResource MediaCardTemplate}"
-                  ItemsSource="{Binding Recent}"
-                  VerticalCacheLength="1">
-                <ItemsRepeater.Layout>
-                  <layout:UniformGridLayout
-                      ItemsJustification="Start"
-                      MinItemHeight="320"
-                      MinItemWidth="190" />
-                </ItemsRepeater.Layout>
-              </ItemsRepeater>
+              <Grid
+                  x:Name="HomeRecentCollection"
+                  IsVisible="{Binding HomeCollectionCards.Count}">
+                <ItemsControl ItemsSource="{Binding HomeCollectionCards}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <controls:ReactBitsMasonryPanel
+                          MaxColumnCount="5"
+                          ColumnSpacing="18"
+                          RowSpacing="18"
+                          AnimationDuration="0:0:0.62"
+                          Stagger="0:0:0.042"
+                          EntranceDistance="86"
+                          AnimateFrom="Alternating" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <StaticResource ResourceKey="HomePosterCardTemplate" />
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </Grid>
               <Border
                   Padding="24"
                   Classes="card"
                   IsVisible="{Binding !Recent.Count}">
-                <StackPanel HorizontalAlignment="Center" Spacing="8">
+                <StackPanel Margin="0,24" HorizontalAlignment="Center" Spacing="8">
                   <TextBlock
                       HorizontalAlignment="Center"
                       Classes="symbol"
                       Foreground="{DynamicResource Brush.Text.Secondary}"
                       FontSize="30"
                       Text="history" />
-                  <TextBlock Classes="muted" Text="Здесь появятся недавно открытые фильмы и сериалы" />
+                  <TextBlock Classes="h2" Text="История пока пуста" />
+                  <TextBlock Classes="muted" Text="Откройте фильм, сериал или аниме — он появится здесь" />
                 </StackPanel>
               </Border>
             </StackPanel>
