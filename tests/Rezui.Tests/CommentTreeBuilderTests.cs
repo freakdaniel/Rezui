@@ -197,14 +197,17 @@ public sealed class CommentTreeBuilderTests
         node.Children.Add(new CommentNodeItem(3, 1, 1, "c", "d", "t", 0, DummyAvatar));
 
         Assert.False(node.HasOverflow);
+        Assert.Equal(2, node.VisibleReplies.Count);
         Assert.Equal(2, node.RenderedReplies.Count);
         Assert.Empty(node.OverflowReplies);
 
         node.IsExpanded = false;
+        Assert.Empty(node.VisibleReplies);
         Assert.Empty(node.RenderedReplies);
         Assert.Contains("Показать ответы (2)", node.CollapseLabel);
 
         node.IsExpanded = true;
+        Assert.Equal(2, node.VisibleReplies.Count);
         Assert.Equal(2, node.RenderedReplies.Count);
         Assert.Equal("Свернуть ответы", node.CollapseLabel);
     }
@@ -222,17 +225,21 @@ public sealed class CommentTreeBuilderTests
         Assert.True(node.HasOverflow);
 
         // First three always visible, collapse state does not affect them.
+        Assert.Equal(5, node.VisibleReplies.Count);
         Assert.Equal(3, node.RenderedReplies.Count);
         node.IsExpanded = false;
+        Assert.Equal(3, node.VisibleReplies.Count);
         Assert.Equal(3, node.RenderedReplies.Count);
         Assert.Contains("Другие ответы (2)", node.OverflowLabel);
 
         // Overflow visible only when expanded.
         node.IsExpanded = true;
+        Assert.Equal(5, node.VisibleReplies.Count);
         Assert.Equal(2, node.OverflowReplies.Count);
         Assert.Equal("Свернуть", node.OverflowLabel);
 
         node.IsExpanded = false;
+        Assert.Equal(3, node.VisibleReplies.Count);
         Assert.Empty(node.OverflowReplies);
     }
 }

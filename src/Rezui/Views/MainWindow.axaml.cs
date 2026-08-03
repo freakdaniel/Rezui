@@ -323,6 +323,7 @@ public sealed partial class MainWindow : Window
         private double _targetY;
         private TimeSpan _lastFrameTime;
         private bool _framePending;
+        private bool _isApplyingOffset;
         private bool _disposed;
 
         public SmoothScrollState(ScrollViewer scrollViewer)
@@ -330,6 +331,7 @@ public sealed partial class MainWindow : Window
             _scrollViewer = scrollViewer;
             _topLevel = TopLevel.GetTopLevel(scrollViewer);
             _targetY = scrollViewer.Offset.Y;
+            _scrollViewer.PropertyChanged += OnScrollViewerPropertyChanged;
         }
 
         public void AddWheelDelta(double deltaY)
@@ -342,9 +344,15 @@ public sealed partial class MainWindow : Window
                 _targetY = _scrollViewer.Offset.Y;
             }
 
-            _targetY = Math.Clamp(
-                _targetY - deltaY * WheelStep,
-                0,
+            // Bound both a single wheel impulse and the accumulated distance
+            // between the animated offset and its target. Without the latter,
+            // a long gesture can build a large backlog and visibly jump when
+            // the animation catches up.
+            _targetY = SmoothScrollPhysics.CalculateTarget(
+                _scrollViewer.Offset.Y,
+                _targetY,
+                deltaY,
+                WheelStep,
                 maximum);
             if (Math.Abs(_targetY - _scrollViewer.Offset.Y) < 0.1)
             {
@@ -358,7 +366,7 @@ public sealed partial class MainWindow : Window
         {
             _targetY = 0;
             _lastFrameTime = default;
-            _scrollViewer.Offset = new Vector(0, 0);
+            SetOffset(new Vector(0, 0));
         }
 
         public void SyncToCurrentOffset()
@@ -376,9 +384,9 @@ public sealed partial class MainWindow : Window
 
             if (_topLevel is null)
             {
-                _scrollViewer.Offset = new Vector(
+                SetOffset(new Vector(
                     _scrollViewer.Offset.X,
-                    _targetY);
+                    _targetY));
                 return;
             }
 
@@ -401,9 +409,9 @@ public sealed partial class MainWindow : Window
             var distance = _targetY - _scrollViewer.Offset.Y;
             if (Math.Abs(distance) <= 0.35)
             {
-                _scrollViewer.Offset = new Vector(
+                SetOffset(new Vector(
                     _scrollViewer.Offset.X,
-                    _targetY);
+                    _targetY));
                 _lastFrameTime = default;
                 return;
             }
@@ -413,13 +421,48 @@ public sealed partial class MainWindow : Window
                 : Math.Clamp((timestamp - _lastFrameTime).TotalSeconds, 1d / 240, 1d / 30);
             _lastFrameTime = timestamp;
             var blend = 1 - Math.Exp(-Response * elapsedSeconds);
-            _scrollViewer.Offset = new Vector(
+            SetOffset(new Vector(
                 _scrollViewer.Offset.X,
-                _scrollViewer.Offset.Y + distance * blend);
+                _scrollViewer.Offset.Y + distance * blend));
             RequestNextFrame();
         }
 
-        public void Dispose() => _disposed = true;
+        private void OnScrollViewerPropertyChanged(
+            object? sender,
+            AvaloniaPropertyChangedEventArgs eventArgs)
+        {
+            if (_disposed ||
+                _isApplyingOffset ||
+                eventArgs.Property != ScrollViewer.OffsetProperty)
+            {
+                return;
+            }
+
+            // Native gestures, scrollbars and layout anchoring can all update
+            // Offset independently. Continuing toward the old target after
+            // that update is perceived as a sudden jump back or forward.
+            _targetY = eventArgs.GetNewValue<Vector>().Y;
+            _lastFrameTime = default;
+        }
+
+        private void SetOffset(Vector offset)
+        {
+            _isApplyingOffset = true;
+            try
+            {
+                _scrollViewer.Offset = offset;
+            }
+            finally
+            {
+                _isApplyingOffset = false;
+            }
+        }
+
+        public void Dispose()
+        {
+            _disposed = true;
+            _scrollViewer.PropertyChanged -= OnScrollViewerPropertyChanged;
+        }
     }
 
     private sealed class AutoScrollState : IDisposable

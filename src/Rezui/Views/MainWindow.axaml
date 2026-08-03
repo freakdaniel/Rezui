@@ -72,13 +72,25 @@
       </Button>
     </DataTemplate>
     <DataTemplate x:Key="CommentNodeTemplate" x:DataType="models:CommentNodeItem">
-      <Grid ColumnDefinitions="38,*" RowDefinitions="Auto,Auto,Auto">
+      <Grid
+          Classes="comment-node"
+          ColumnDefinitions="38,*"
+          VerticalAlignment="Top">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="{Binding BranchRowHeight, FallbackValue=0}" />
+          <RowDefinition Height="{Binding BranchRowHeight, FallbackValue=0}" />
+        </Grid.RowDefinitions>
         <!-- Avatar column. A two-row inner grid keeps the thread anchored to the
              fixed 38px avatar (constant ~5px gap under it) rather than to the
              taller content column. The thread spans rows 1-2 so it reaches the
              toggle row where the elbow continues it; its bottom margin stops it
              just above the elbow so they join without overlap. -->
-        <Grid Grid.Row="0" Grid.RowSpan="3" Grid.Column="0" RowDefinitions="38,*">
+        <Grid
+            Grid.Row="0"
+            Grid.RowSpan="{Binding AvatarRowSpan, FallbackValue=1}"
+            Grid.Column="0"
+            RowDefinitions="38,*">
           <Border
               Grid.Row="0"
               Width="38"
@@ -95,15 +107,15 @@
               HorizontalAlignment="Center"
               VerticalAlignment="Stretch"
               Background="{DynamicResource Brush.Border.Subtle}"
-              IsVisible="{Binding HasReplies}" />
+              IsVisible="{Binding HasReplies, FallbackValue=False}" />
         </Grid>
 
         <!-- Comment content (row 0). -->
-        <StackPanel Grid.Row="0" Grid.Column="1" Margin="10,0,0,0" Spacing="5" VerticalAlignment="Top">
-          <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Grid.Row="0" Grid.Column="1" Margin="10,0,0,0" Spacing="5" VerticalAlignment="Top" Classes="comment-content">
+          <StackPanel Orientation="Horizontal" Spacing="8">
             <TextBlock FontSize="12" FontWeight="SemiBold" Text="{Binding Author}" />
-            <TextBlock Grid.Column="1" Classes="muted" FontSize="10" Text="{Binding DateLabel}" />
-          </Grid>
+            <TextBlock VerticalAlignment="Center" Classes="muted" FontSize="10" Text="{Binding DateLabel}" />
+          </StackPanel>
           <TextBlock FontSize="12" LineHeight="18" Text="{Binding Text}" TextWrapping="Wrap" />
           <StackPanel VerticalAlignment="Center" Orientation="Horizontal" Spacing="5">
             <TextBlock
@@ -126,18 +138,9 @@
         <StackPanel
             Grid.Row="1"
             Grid.Column="1"
-            Margin="10,5,0,0"
-            Spacing="10"
-            IsVisible="{Binding HasReplies}">
-          <ItemsControl ItemTemplate="{StaticResource CommentNodeTemplate}" ItemsSource="{Binding RenderedReplies}">
-            <ItemsControl.ItemsPanel>
-              <ItemsPanelTemplate>
-                <StackPanel Spacing="10" />
-              </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-          </ItemsControl>
-          <!-- Long threads (>3 replies): overflow replies behind a button -->
-          <ItemsControl ItemTemplate="{StaticResource CommentNodeTemplate}" ItemsSource="{Binding OverflowReplies}">
+            Margin="0,16,0,0"
+            IsVisible="{Binding HasReplies, FallbackValue=False}">
+          <ItemsControl ItemTemplate="{StaticResource CommentNodeTemplate}" ItemsSource="{Binding VisibleReplies}">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
                 <StackPanel Spacing="10" />
@@ -146,52 +149,56 @@
           </ItemsControl>
         </StackPanel>
 
-        <!-- Elbow + toggle button (row 2). The elbow Path spans both columns so
-             its origin aligns with the avatar column; it continues the vertical
-             thread (starts at x=19) then curves and runs right toward the
-             button with a small gap. StrokeThickness 3 keeps the J as thick as
-             the 2px thread visually. Height matches the button so the
-             horizontal sits at its vertical center. -->
-        <Path
+        <!-- The entire toggle row is hidden for leaf comments so an invisible
+             button cannot leave its measured height below a nested reply. -->
+        <Grid
             Grid.Row="2"
             Grid.Column="0"
             Grid.ColumnSpan="2"
-            Width="38"
-            Height="30"
-            HorizontalAlignment="Left"
-            VerticalAlignment="Center"
-            Stretch="None"
-            Stroke="{DynamicResource Brush.Border.Subtle}"
-            StrokeThickness="3"
-            Data="M 19 0 L 19 9 Q 19 15 25 15 L 38 15"
-            IsVisible="{Binding HasReplies}" />
-        <Button
-            Grid.Row="2"
-            Grid.Column="1"
-            Margin="8,0,0,0"
-            VerticalAlignment="Center"
-            Classes="comment-toggle"
-            Command="{Binding ToggleExpandedCommand}"
-            IsVisible="{Binding HasOverflow}"
-            ToolTip.Tip="Развернуть или свернуть остальные ответы">
-          <StackPanel Orientation="Horizontal" Spacing="5">
-            <TextBlock Classes="symbol" FontSize="15" Text="{Binding CollapseIcon}" />
-            <TextBlock Text="{Binding OverflowLabel}" />
-          </StackPanel>
-        </Button>
-        <Button
-            Grid.Row="2"
-            Grid.Column="1"
-            Margin="8,0,0,0"
-            VerticalAlignment="Center"
-            Classes="comment-toggle"
-            Command="{Binding ToggleExpandedCommand}"
-            IsVisible="{Binding CanToggleBranch}">
-          <StackPanel Orientation="Horizontal" Spacing="5">
-            <TextBlock Classes="symbol" FontSize="15" Text="{Binding CollapseIcon}" />
-            <TextBlock Text="{Binding CollapseLabel}" />
-          </StackPanel>
-        </Button>
+            Classes="comment-toggle-row"
+            ColumnDefinitions="38,*"
+            IsVisible="{Binding HasReplies, FallbackValue=False}">
+          <!-- The elbow uses the same 2px stroke as the vertical thread. -->
+          <Path
+              Grid.Column="0"
+              Grid.ColumnSpan="2"
+              Classes="comment-thread-elbow"
+              Width="38"
+              Height="30"
+              Margin="0,16,0,0"
+              HorizontalAlignment="Left"
+              VerticalAlignment="Center"
+              Stretch="None"
+              Stroke="{DynamicResource Brush.Border.Subtle}"
+              StrokeThickness="2"
+              StrokeJoin="Round"
+              Data="M 19 0 L 19 9 Q 19 15 25 15 L 38 15" />
+          <Button
+              Grid.Column="1"
+              Margin="8,16,0,0"
+              VerticalAlignment="Center"
+              Classes="comment-toggle"
+              Command="{Binding ToggleExpandedCommand}"
+              IsVisible="{Binding HasOverflow}"
+              ToolTip.Tip="Развернуть или свернуть остальные ответы">
+            <StackPanel Orientation="Horizontal" Spacing="5">
+              <TextBlock Classes="symbol" FontSize="15" Text="{Binding CollapseIcon}" />
+              <TextBlock Text="{Binding OverflowLabel}" />
+            </StackPanel>
+          </Button>
+          <Button
+              Grid.Column="1"
+              Margin="8,16,0,0"
+              VerticalAlignment="Center"
+              Classes="comment-toggle"
+              Command="{Binding ToggleExpandedCommand}"
+              IsVisible="{Binding CanToggleBranch}">
+            <StackPanel Orientation="Horizontal" Spacing="5">
+              <TextBlock Classes="symbol" FontSize="15" Text="{Binding CollapseIcon}" />
+              <TextBlock Text="{Binding CollapseLabel}" />
+            </StackPanel>
+          </Button>
+        </Grid>
       </Grid>
     </DataTemplate>
   </Window.Resources>
@@ -950,6 +957,7 @@
             Classes.entering="{Binding IsDetailsEntering}"
             Classes.leaving="{Binding IsDetailsLeaving}"
             Classes.loading="{Binding IsDetailsContentLoading}"
+            BringIntoViewOnFocusChange="False"
             HorizontalScrollBarVisibility="Disabled"
             IsHitTestVisible="{Binding !IsDetailsContentLoading}"
             IsVisible="{Binding IsDetailsVisible}">
@@ -1389,18 +1397,16 @@
 
               <StackPanel IsVisible="{Binding DetailsDirectors.Count}" Spacing="12">
                 <TextBlock Classes="h2" Text="Режиссёры" />
-                <ItemsRepeater
+                <ItemsControl
+                    x:Name="DetailsDirectorsList"
                     ClipToBounds="False"
-                    HorizontalCacheLength="1"
-                    ItemsSource="{Binding DetailsDirectors}"
-                    VerticalCacheLength="1">
-                  <ItemsRepeater.Layout>
-                    <layout:UniformGridLayout
-                        ItemsJustification="Start"
-                        MinItemHeight="64"
-                        MinItemWidth="182" />
-                  </ItemsRepeater.Layout>
-                  <ItemsRepeater.ItemTemplate>
+                    ItemsSource="{Binding DetailsDirectors}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <WrapPanel />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="models:PersonCardItem">
                       <Border Width="170" Margin="0,0,12,10" Padding="10" Classes="card details-card">
                         <Grid ColumnDefinitions="44,*">
@@ -1423,24 +1429,22 @@
                         </Grid>
                       </Border>
                     </DataTemplate>
-                  </ItemsRepeater.ItemTemplate>
-                </ItemsRepeater>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
               </StackPanel>
 
               <StackPanel IsVisible="{Binding DetailsCast.Count}" Spacing="12">
                 <TextBlock Classes="h2" Text="В ролях" />
-                <ItemsRepeater
+                <ItemsControl
+                    x:Name="DetailsCastList"
                     ClipToBounds="False"
-                    HorizontalCacheLength="1"
-                    ItemsSource="{Binding DetailsCast}"
-                    VerticalCacheLength="1">
-                  <ItemsRepeater.Layout>
-                    <layout:UniformGridLayout
-                        ItemsJustification="Start"
-                        MinItemHeight="64"
-                        MinItemWidth="182" />
-                  </ItemsRepeater.Layout>
-                  <ItemsRepeater.ItemTemplate>
+                    ItemsSource="{Binding DetailsCast}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <WrapPanel />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="models:PersonCardItem">
                       <Border Width="170" Margin="0,0,12,10" Padding="10" Classes="card details-card">
                         <Grid ColumnDefinitions="44,*">
@@ -1463,24 +1467,22 @@
                         </Grid>
                       </Border>
                     </DataTemplate>
-                  </ItemsRepeater.ItemTemplate>
-                </ItemsRepeater>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
               </StackPanel>
 
               <StackPanel IsVisible="{Binding DetailsSchedule.Count}" Spacing="12">
                 <TextBlock Classes="h2" Text="Расписание серий" />
-                <ItemsRepeater
+                <ItemsControl
+                    x:Name="DetailsScheduleList"
                     ClipToBounds="False"
-                    HorizontalCacheLength="1"
-                    ItemsSource="{Binding DetailsSchedule}"
-                    VerticalCacheLength="1">
-                  <ItemsRepeater.Layout>
-                    <layout:UniformGridLayout
-                        ItemsJustification="Start"
-                        MinItemHeight="86"
-                        MinItemWidth="262" />
-                  </ItemsRepeater.Layout>
-                  <ItemsRepeater.ItemTemplate>
+                    ItemsSource="{Binding DetailsSchedule}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <WrapPanel />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="models:ScheduleCardItem">
                       <Border Width="250" Margin="0,0,12,10" Padding="14" Classes="card details-card">
                         <StackPanel Spacing="4">
@@ -1490,8 +1492,8 @@
                         </StackPanel>
                       </Border>
                     </DataTemplate>
-                  </ItemsRepeater.ItemTemplate>
-                </ItemsRepeater>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
               </StackPanel>
 
               <ItemsControl
@@ -1541,18 +1543,16 @@
 
               <StackPanel IsVisible="{Binding DetailsRecommendations.Count}" Spacing="14">
                 <TextBlock Classes="h2" Text="Вам также понравится" />
-                <ItemsRepeater
+                <ItemsControl
+                    x:Name="DetailsRecommendationsList"
                     ClipToBounds="False"
-                    HorizontalCacheLength="1"
-                    ItemsSource="{Binding DetailsRecommendations}"
-                    VerticalCacheLength="1">
-                  <ItemsRepeater.Layout>
-                    <layout:UniformGridLayout
-                        ItemsJustification="Start"
-                        MinItemHeight="320"
-                        MinItemWidth="190" />
-                  </ItemsRepeater.Layout>
-                  <ItemsRepeater.ItemTemplate>
+                    ItemsSource="{Binding DetailsRecommendations}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <WrapPanel />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="models:MediaCardItem">
                       <Button
                           Width="174"
@@ -1598,8 +1598,8 @@
                         </StackPanel>
                       </Button>
                     </DataTemplate>
-                  </ItemsRepeater.ItemTemplate>
-                </ItemsRepeater>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
               </StackPanel>
 
               <StackPanel Spacing="14">

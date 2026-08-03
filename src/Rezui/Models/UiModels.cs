@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -225,6 +226,21 @@ public sealed partial class CommentNodeItem : ObservableObject
     /// </summary>
     public bool CanToggleBranch => HasReplies && !HasOverflow;
 
+    public GridLength BranchRowHeight =>
+        HasReplies ? GridLength.Auto : new GridLength(0);
+
+    public int AvatarRowSpan => HasReplies ? 3 : 1;
+
+    /// <summary>
+    /// All replies currently shown by the template. Keeping them in a single
+    /// list prevents empty reply panels from adding spacing between nested
+    /// toggle buttons.
+    /// </summary>
+    public IReadOnlyList<CommentNodeItem> VisibleReplies =>
+        HasOverflow
+            ? (IsExpanded ? Children : Children.Take(AlwaysVisibleReplies).ToList())
+            : (IsExpanded ? Children : Array.Empty<CommentNodeItem>());
+
     /// <summary>
     /// Replies rendered directly under this comment. For short threads (≤3
     /// replies) this is the full set, hidden when collapsed. For long threads
@@ -273,6 +289,7 @@ public sealed partial class CommentNodeItem : ObservableObject
 
     partial void OnIsExpandedChanged(bool value)
     {
+        OnPropertyChanged(nameof(VisibleReplies));
         OnPropertyChanged(nameof(RenderedReplies));
         OnPropertyChanged(nameof(OverflowReplies));
         OnPropertyChanged(nameof(CollapseLabel));
@@ -285,6 +302,9 @@ public sealed partial class CommentNodeItem : ObservableObject
         OnPropertyChanged(nameof(HasReplies));
         OnPropertyChanged(nameof(HasOverflow));
         OnPropertyChanged(nameof(CanToggleBranch));
+        OnPropertyChanged(nameof(BranchRowHeight));
+        OnPropertyChanged(nameof(AvatarRowSpan));
+        OnPropertyChanged(nameof(VisibleReplies));
         OnPropertyChanged(nameof(RenderedReplies));
         OnPropertyChanged(nameof(OverflowReplies));
         OnPropertyChanged(nameof(CollapseLabel));
