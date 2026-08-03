@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:layout="clr-namespace:Avalonia.Layout;assembly=Avalonia.Controls.ItemsRepeater"
     xmlns:models="clr-namespace:Rezui.Models"
     xmlns:transitions="clr-namespace:Rezui.Transitions"
     xmlns:vm="clr-namespace:Rezui.ViewModels"
@@ -22,8 +23,8 @@
     <KeyBinding Gesture="Escape" Command="{Binding CloseProfilePopupCommand}" />
   </Window.KeyBindings>
 
-  <Window.DataTemplates>
-    <DataTemplate DataType="models:MediaCardItem">
+  <Window.Resources>
+    <DataTemplate x:Key="MediaCardTemplate" x:DataType="models:MediaCardItem">
       <Button
           Width="174"
           Margin="0,0,16,20"
@@ -44,7 +45,7 @@
                   Classes="symbol"
                   Foreground="{DynamicResource Brush.Text.Secondary}"
                   Text="movie" />
-              <Image Source="{Binding ImageSource^}" Stretch="UniformToFill" />
+              <Image Source="{Binding ImageSource.Value^}" Stretch="UniformToFill" />
               <Border
                   Padding="9,5"
                   Margin="10"
@@ -70,6 +71,132 @@
         </StackPanel>
       </Button>
     </DataTemplate>
+    <DataTemplate x:Key="CommentNodeTemplate" x:DataType="models:CommentNodeItem">
+      <Grid ColumnDefinitions="38,*" RowDefinitions="Auto,Auto,Auto">
+        <!-- Avatar column. A two-row inner grid keeps the thread anchored to the
+             fixed 38px avatar (constant ~5px gap under it) rather than to the
+             taller content column. The thread spans rows 1-2 so it reaches the
+             toggle row where the elbow continues it; its bottom margin stops it
+             just above the elbow so they join without overlap. -->
+        <Grid Grid.Row="0" Grid.RowSpan="3" Grid.Column="0" RowDefinitions="38,*">
+          <Border
+              Grid.Row="0"
+              Width="38"
+              Height="38"
+              CornerRadius="19"
+              ClipToBounds="True"
+              Background="{DynamicResource Brush.Surface.Secondary}">
+            <Image Source="{Binding AvatarSource.Value^}" Stretch="UniformToFill" />
+          </Border>
+          <Border
+              Grid.Row="1"
+              Width="2"
+              Margin="0,5,0,30"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Stretch"
+              Background="{DynamicResource Brush.Border.Subtle}"
+              IsVisible="{Binding HasReplies}" />
+        </Grid>
+
+        <!-- Comment content (row 0). -->
+        <StackPanel Grid.Row="0" Grid.Column="1" Margin="10,0,0,0" Spacing="5" VerticalAlignment="Top">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock FontSize="12" FontWeight="SemiBold" Text="{Binding Author}" />
+            <TextBlock Grid.Column="1" Classes="muted" FontSize="10" Text="{Binding DateLabel}" />
+          </Grid>
+          <TextBlock FontSize="12" LineHeight="18" Text="{Binding Text}" TextWrapping="Wrap" />
+          <StackPanel VerticalAlignment="Center" Orientation="Horizontal" Spacing="5">
+            <TextBlock
+                VerticalAlignment="Center"
+                Classes="symbol"
+                FontSize="15"
+                LineHeight="16"
+                Text="thumb_up" />
+            <TextBlock
+                VerticalAlignment="Center"
+                Classes="muted"
+                FontSize="12"
+                FontWeight="Medium"
+                LineHeight="16"
+                Text="{Binding Likes}" />
+          </StackPanel>
+        </StackPanel>
+
+        <!-- Replies (row 1). -->
+        <StackPanel
+            Grid.Row="1"
+            Grid.Column="1"
+            Margin="10,5,0,0"
+            Spacing="10"
+            IsVisible="{Binding HasReplies}">
+          <ItemsControl ItemTemplate="{StaticResource CommentNodeTemplate}" ItemsSource="{Binding RenderedReplies}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Spacing="10" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+          </ItemsControl>
+          <!-- Long threads (>3 replies): overflow replies behind a button -->
+          <ItemsControl ItemTemplate="{StaticResource CommentNodeTemplate}" ItemsSource="{Binding OverflowReplies}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Spacing="10" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+          </ItemsControl>
+        </StackPanel>
+
+        <!-- Elbow + toggle button (row 2). The elbow Path spans both columns so
+             its origin aligns with the avatar column; it continues the vertical
+             thread (starts at x=19) then curves and runs right toward the
+             button with a small gap. StrokeThickness 3 keeps the J as thick as
+             the 2px thread visually. Height matches the button so the
+             horizontal sits at its vertical center. -->
+        <Path
+            Grid.Row="2"
+            Grid.Column="0"
+            Grid.ColumnSpan="2"
+            Width="38"
+            Height="30"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Center"
+            Stretch="None"
+            Stroke="{DynamicResource Brush.Border.Subtle}"
+            StrokeThickness="3"
+            Data="M 19 0 L 19 9 Q 19 15 25 15 L 38 15"
+            IsVisible="{Binding HasReplies}" />
+        <Button
+            Grid.Row="2"
+            Grid.Column="1"
+            Margin="8,0,0,0"
+            VerticalAlignment="Center"
+            Classes="comment-toggle"
+            Command="{Binding ToggleExpandedCommand}"
+            IsVisible="{Binding HasOverflow}"
+            ToolTip.Tip="Развернуть или свернуть остальные ответы">
+          <StackPanel Orientation="Horizontal" Spacing="5">
+            <TextBlock Classes="symbol" FontSize="15" Text="{Binding CollapseIcon}" />
+            <TextBlock Text="{Binding OverflowLabel}" />
+          </StackPanel>
+        </Button>
+        <Button
+            Grid.Row="2"
+            Grid.Column="1"
+            Margin="8,0,0,0"
+            VerticalAlignment="Center"
+            Classes="comment-toggle"
+            Command="{Binding ToggleExpandedCommand}"
+            IsVisible="{Binding CanToggleBranch}">
+          <StackPanel Orientation="Horizontal" Spacing="5">
+            <TextBlock Classes="symbol" FontSize="15" Text="{Binding CollapseIcon}" />
+            <TextBlock Text="{Binding CollapseLabel}" />
+          </StackPanel>
+        </Button>
+      </Grid>
+    </DataTemplate>
+  </Window.Resources>
+
+  <Window.DataTemplates>
 
     <DataTemplate DataType="models:LibraryFolderItem">
       <StackPanel Margin="0,0,0,26" Spacing="14">
@@ -86,13 +213,19 @@
                 Text="{Binding ItemCount}" />
           </Border>
         </StackPanel>
-        <ItemsControl ItemsSource="{Binding Items}">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <WrapPanel />
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-        </ItemsControl>
+        <ItemsRepeater
+            ClipToBounds="False"
+            HorizontalCacheLength="1"
+            ItemTemplate="{StaticResource MediaCardTemplate}"
+            ItemsSource="{Binding Items}"
+            VerticalCacheLength="1">
+          <ItemsRepeater.Layout>
+            <layout:UniformGridLayout
+                ItemsJustification="Start"
+                MinItemHeight="320"
+                MinItemWidth="190" />
+          </ItemsRepeater.Layout>
+        </ItemsRepeater>
       </StackPanel>
     </DataTemplate>
 
@@ -359,16 +492,14 @@
                           Classes="continue-hero-background"
                           Opacity="0.96"
                           RenderTransformOrigin="50%,50%"
-                          Source="{Binding ImageSource^}"
-                          Stretch="UniformToFill"
-                          AttachedToVisualTree="ContinueBackground_OnAttachedToVisualTree"
-                          DetachedFromVisualTree="ContinueBackground_OnDetachedFromVisualTree">
+                          Source="{Binding BackgroundImageSource.Value^}"
+                          Stretch="UniformToFill">
                         <Image.RenderTransform>
-                          <TransformGroup>
-                            <ScaleTransform ScaleX="1.18" ScaleY="1.18" />
-                            <TranslateTransform />
-                          </TransformGroup>
+                          <ScaleTransform ScaleX="1.18" ScaleY="1.18" />
                         </Image.RenderTransform>
+                        <Image.CacheMode>
+                          <BitmapCache RenderAtScale="0.6" />
+                        </Image.CacheMode>
                         <Image.Effect>
                           <BlurEffect Radius="46" />
                         </Image.Effect>
@@ -401,7 +532,7 @@
                                 Foreground="#BFFFFFFF"
                                 FontSize="30"
                                 Text="movie" />
-                            <Image Source="{Binding ImageSource^}" Stretch="UniformToFill" />
+                            <Image Source="{Binding ImageSource.Value^}" Stretch="UniformToFill" />
                           </Grid>
                         </Border>
 
@@ -569,13 +700,19 @@
                   </StackPanel>
                 </Button>
               </Grid>
-              <ItemsControl ItemsSource="{Binding Recent}">
-                <ItemsControl.ItemsPanel>
-                  <ItemsPanelTemplate>
-                    <WrapPanel />
-                  </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-              </ItemsControl>
+              <ItemsRepeater
+                  ClipToBounds="False"
+                  HorizontalCacheLength="1"
+                  ItemTemplate="{StaticResource MediaCardTemplate}"
+                  ItemsSource="{Binding Recent}"
+                  VerticalCacheLength="1">
+                <ItemsRepeater.Layout>
+                  <layout:UniformGridLayout
+                      ItemsJustification="Start"
+                      MinItemHeight="320"
+                      MinItemWidth="190" />
+                </ItemsRepeater.Layout>
+              </ItemsRepeater>
               <Border
                   Padding="24"
                   Classes="card"
@@ -630,24 +767,36 @@
                     Foreground="{StaticResource Brush.Brand}"
                     Text="resume" />
               </StackPanel>
-              <ItemsControl ItemsSource="{Binding ContinueWatching}">
-                <ItemsControl.ItemsPanel>
-                  <ItemsPanelTemplate>
-                    <WrapPanel />
-                  </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-              </ItemsControl>
+              <ItemsRepeater
+                  ClipToBounds="False"
+                  HorizontalCacheLength="1"
+                  ItemTemplate="{StaticResource MediaCardTemplate}"
+                  ItemsSource="{Binding ContinueWatching}"
+                  VerticalCacheLength="1">
+                <ItemsRepeater.Layout>
+                  <layout:UniformGridLayout
+                      ItemsJustification="Start"
+                      MinItemHeight="320"
+                      MinItemWidth="190" />
+                </ItemsRepeater.Layout>
+              </ItemsRepeater>
             </StackPanel>
 
             <StackPanel IsVisible="{Binding Results.Count}" Spacing="14">
               <TextBlock Classes="h2" Text="Результаты поиска" />
-              <ItemsControl ItemsSource="{Binding Results}">
-                <ItemsControl.ItemsPanel>
-                  <ItemsPanelTemplate>
-                    <WrapPanel />
-                  </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-              </ItemsControl>
+              <ItemsRepeater
+                  ClipToBounds="False"
+                  HorizontalCacheLength="1"
+                  ItemTemplate="{StaticResource MediaCardTemplate}"
+                  ItemsSource="{Binding Results}"
+                  VerticalCacheLength="1">
+                <ItemsRepeater.Layout>
+                  <layout:UniformGridLayout
+                      ItemsJustification="Start"
+                      MinItemHeight="320"
+                      MinItemWidth="190" />
+                </ItemsRepeater.Layout>
+              </ItemsRepeater>
             </StackPanel>
 
             <StackPanel Spacing="14">
@@ -735,6 +884,27 @@
             </Border>
 
             <Border Padding="24" Classes="card">
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="5">
+                  <TextBlock Classes="h2" Text="Диагностика" />
+                  <TextBlock
+                      Classes="muted"
+                      Text="Журнал запуска, сети, кэша, синхронизации и ошибок" />
+                </StackPanel>
+                <Button
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    Classes="ghost"
+                    Command="{Binding OpenLogsFolderCommand}">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Classes="symbol" Text="folder_open" />
+                    <TextBlock Text="Открыть логи" />
+                  </StackPanel>
+                </Button>
+              </Grid>
+            </Border>
+
+            <Border Padding="24" Classes="card">
               <Grid ColumnDefinitions="Auto,*,Auto">
                 <Border
                     Width="58"
@@ -776,6 +946,7 @@
         <ScrollViewer
             x:Name="DetailsScrollViewer"
             Classes="smooth-scroll details-page"
+            Classes.detailed-hero="{Binding UseDetailedHeroEntrance}"
             Classes.entering="{Binding IsDetailsEntering}"
             Classes.leaving="{Binding IsDetailsLeaving}"
             Classes.loading="{Binding IsDetailsContentLoading}"
@@ -788,7 +959,11 @@
                   Classes="details-hero-shadow"
                   Classes.visible="{Binding IsDetailsHeroSurfaceVisible}"
                   BoxShadow="0 22 54 0 #5C000000"
-                  IsHitTestVisible="False" />
+                  IsHitTestVisible="False">
+                <Border.CacheMode>
+                  <BitmapCache RenderAtScale="0.75" />
+                </Border.CacheMode>
+              </Border>
               <Border Classes="details-hero">
               <Border ClipToBounds="True">
                 <Grid>
@@ -801,9 +976,10 @@
                     Classes.ready="{Binding IsDetailsHeroBackgroundReady}">
                   <Image
                       Classes="details-hero-background"
+                      IsVisible="{Binding IsDetailsHeroPrimaryImageVisible}"
                       Margin="-56"
                       RenderTransformOrigin="50%,50%"
-                      Source="{Binding DetailsImageSource^}"
+                      Source="{Binding DetailsImageSource}"
                       Stretch="UniformToFill">
                     <Image.Effect>
                       <BlurEffect Radius="44" />
@@ -817,7 +993,7 @@
                       Classes.ready="{Binding IsDetailsHeroImageUpgradeReady}"
                       Margin="-56"
                       RenderTransformOrigin="50%,50%"
-                      Source="{Binding DetailsHeroUpgradeImageSource^}"
+                      Source="{Binding DetailsHeroUpgradeImageSource}"
                       Stretch="UniformToFill">
                     <Image.Effect>
                       <BlurEffect Radius="44" />
@@ -838,8 +1014,14 @@
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
                     Classes="details-hero-content"
-                    Classes.watch-ready="{Binding CanWatchDetails}"
+                    Classes.visible="{Binding IsDetailsHeroContentVisible}"
+                    Classes.move-ready="{Binding IsDetailsHeroMetadataReady}"
                     Spacing="7">
+                  <StackPanel
+                      HorizontalAlignment="Center"
+                      VerticalAlignment="Center"
+                      Classes="details-hero-heading"
+                      Spacing="10">
                   <Border
                       Width="148"
                       Height="212"
@@ -858,12 +1040,13 @@
                     </Border.RenderTransform>
                     <Grid>
                       <Image
-                          Source="{Binding DetailsImageSource^}"
+                          IsVisible="{Binding IsDetailsHeroPrimaryImageVisible}"
+                          Source="{Binding DetailsImageSource}"
                           Stretch="UniformToFill" />
                       <Image
                           Classes="details-hero-poster-upgrade"
                           Classes.ready="{Binding IsDetailsHeroImageUpgradeReady}"
-                          Source="{Binding DetailsHeroUpgradeImageSource^}"
+                          Source="{Binding DetailsHeroUpgradeImageSource}"
                           Stretch="UniformToFill" />
                     </Grid>
                   </Border>
@@ -872,9 +1055,9 @@
                       HorizontalAlignment="Center"
                       Classes="details-hero-title"
                       Foreground="White"
-                      FontSize="38"
+                      FontSize="{Binding DetailsTitleFontSize}"
                       FontWeight="SemiBold"
-                      LineHeight="42"
+                      LineHeight="{Binding DetailsTitleLineHeight}"
                       MaxLines="3"
                       Opacity="1"
                       Text="{Binding DetailsTitle}"
@@ -883,6 +1066,14 @@
                       TextWrapping="Wrap">
                     <TextBlock.RenderTransform><TranslateTransform /></TextBlock.RenderTransform>
                   </TextBlock>
+                  </StackPanel>
+                  <StackPanel
+                      Width="720"
+                      HorizontalAlignment="Center"
+                      Classes="details-hero-metadata"
+                      Classes.visible="{Binding IsDetailsHeroMetadataVisible}"
+                      IsHitTestVisible="{Binding IsDetailsHeroMetadataVisible}"
+                      Spacing="7">
                   <Grid Width="720" Height="36" HorizontalAlignment="Center">
                     <TextBlock
                         Width="720"
@@ -951,6 +1142,7 @@
                       </StackPanel>
                     </Button>
                   </Border>
+                  </StackPanel>
                 </StackPanel>
                 </Grid>
               </Border>
@@ -1030,9 +1222,10 @@
                     TextWrapping="Wrap" />
                 <Button
                     Margin="0,8,0,0"
+                    HorizontalAlignment="Center"
                     Classes="login-primary details-retry"
                     Command="{Binding RetryDetailsContentCommand}">
-                  <StackPanel Orientation="Horizontal" Spacing="7">
+                  <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Orientation="Horizontal" Spacing="7">
                     <TextBlock Classes="symbol" FontSize="18" Text="refresh" />
                     <TextBlock Text="Попробовать снова" />
                   </StackPanel>
@@ -1085,10 +1278,10 @@
                               <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="models:CountryFlagItem">
                                   <StackPanel
-                                      Margin="0,0,12,4"
+                                      Margin="0,0,7,4"
                                       VerticalAlignment="Center"
                                       Orientation="Horizontal"
-                                      Spacing="6">
+                                      Spacing="5">
                                     <Border
                                         Width="18"
                                         Height="12"
@@ -1102,6 +1295,12 @@
                                         VerticalAlignment="Center"
                                         FontSize="12"
                                         Text="{Binding Name}" />
+                                    <TextBlock
+                                        Margin="-3,0,0,0"
+                                        VerticalAlignment="Center"
+                                        FontSize="12"
+                                        IsVisible="{Binding HasTrailingSeparator}"
+                                        Text="," />
                                   </StackPanel>
                                 </DataTemplate>
                               </ItemsControl.ItemTemplate>
@@ -1190,13 +1389,18 @@
 
               <StackPanel IsVisible="{Binding DetailsDirectors.Count}" Spacing="12">
                 <TextBlock Classes="h2" Text="Режиссёры" />
-                <ItemsControl
-                    Margin="-18,-18,-18,-28"
-                    ItemsSource="{Binding DetailsDirectors}">
-                  <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate><WrapPanel Margin="18,18,18,28" /></ItemsPanelTemplate>
-                  </ItemsControl.ItemsPanel>
-                  <ItemsControl.ItemTemplate>
+                <ItemsRepeater
+                    ClipToBounds="False"
+                    HorizontalCacheLength="1"
+                    ItemsSource="{Binding DetailsDirectors}"
+                    VerticalCacheLength="1">
+                  <ItemsRepeater.Layout>
+                    <layout:UniformGridLayout
+                        ItemsJustification="Start"
+                        MinItemHeight="64"
+                        MinItemWidth="182" />
+                  </ItemsRepeater.Layout>
+                  <ItemsRepeater.ItemTemplate>
                     <DataTemplate x:DataType="models:PersonCardItem">
                       <Border Width="170" Margin="0,0,12,10" Padding="10" Classes="card details-card">
                         <Grid ColumnDefinitions="44,*">
@@ -1209,7 +1413,7 @@
                                   FontSize="25"
                                   Foreground="{DynamicResource Brush.Text.Secondary}"
                                   Text="person" />
-                              <Image Source="{Binding ImageSource^}" Stretch="UniformToFill" />
+                              <Image Source="{Binding ImageSource.Value^}" Stretch="UniformToFill" />
                             </Grid>
                           </Border>
                           <StackPanel Grid.Column="1" Margin="9,0,0,0" VerticalAlignment="Center">
@@ -1219,19 +1423,24 @@
                         </Grid>
                       </Border>
                     </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                  </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
               </StackPanel>
 
               <StackPanel IsVisible="{Binding DetailsCast.Count}" Spacing="12">
                 <TextBlock Classes="h2" Text="В ролях" />
-                <ItemsControl
-                    Margin="-18,-18,-18,-28"
-                    ItemsSource="{Binding DetailsCast}">
-                  <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate><WrapPanel Margin="18,18,18,28" /></ItemsPanelTemplate>
-                  </ItemsControl.ItemsPanel>
-                  <ItemsControl.ItemTemplate>
+                <ItemsRepeater
+                    ClipToBounds="False"
+                    HorizontalCacheLength="1"
+                    ItemsSource="{Binding DetailsCast}"
+                    VerticalCacheLength="1">
+                  <ItemsRepeater.Layout>
+                    <layout:UniformGridLayout
+                        ItemsJustification="Start"
+                        MinItemHeight="64"
+                        MinItemWidth="182" />
+                  </ItemsRepeater.Layout>
+                  <ItemsRepeater.ItemTemplate>
                     <DataTemplate x:DataType="models:PersonCardItem">
                       <Border Width="170" Margin="0,0,12,10" Padding="10" Classes="card details-card">
                         <Grid ColumnDefinitions="44,*">
@@ -1244,7 +1453,7 @@
                                   FontSize="25"
                                   Foreground="{DynamicResource Brush.Text.Secondary}"
                                   Text="person" />
-                              <Image Source="{Binding ImageSource^}" Stretch="UniformToFill" />
+                              <Image Source="{Binding ImageSource.Value^}" Stretch="UniformToFill" />
                             </Grid>
                           </Border>
                           <StackPanel Grid.Column="1" Margin="9,0,0,0" VerticalAlignment="Center">
@@ -1254,19 +1463,24 @@
                         </Grid>
                       </Border>
                     </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                  </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
               </StackPanel>
 
               <StackPanel IsVisible="{Binding DetailsSchedule.Count}" Spacing="12">
                 <TextBlock Classes="h2" Text="Расписание серий" />
-                <ItemsControl
-                    Margin="-18,-18,-18,-28"
-                    ItemsSource="{Binding DetailsSchedule}">
-                  <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate><WrapPanel Margin="18,18,18,28" /></ItemsPanelTemplate>
-                  </ItemsControl.ItemsPanel>
-                  <ItemsControl.ItemTemplate>
+                <ItemsRepeater
+                    ClipToBounds="False"
+                    HorizontalCacheLength="1"
+                    ItemsSource="{Binding DetailsSchedule}"
+                    VerticalCacheLength="1">
+                  <ItemsRepeater.Layout>
+                    <layout:UniformGridLayout
+                        ItemsJustification="Start"
+                        MinItemHeight="86"
+                        MinItemWidth="262" />
+                  </ItemsRepeater.Layout>
+                  <ItemsRepeater.ItemTemplate>
                     <DataTemplate x:DataType="models:ScheduleCardItem">
                       <Border Width="250" Margin="0,0,12,10" Padding="14" Classes="card details-card">
                         <StackPanel Spacing="4">
@@ -1276,8 +1490,8 @@
                         </StackPanel>
                       </Border>
                     </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                  </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
               </StackPanel>
 
               <ItemsControl
@@ -1327,13 +1541,18 @@
 
               <StackPanel IsVisible="{Binding DetailsRecommendations.Count}" Spacing="14">
                 <TextBlock Classes="h2" Text="Вам также понравится" />
-                <ItemsControl
-                    Margin="-18,-18,-18,-28"
-                    ItemsSource="{Binding DetailsRecommendations}">
-                  <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate><WrapPanel Margin="18,18,18,28" /></ItemsPanelTemplate>
-                  </ItemsControl.ItemsPanel>
-                  <ItemsControl.ItemTemplate>
+                <ItemsRepeater
+                    ClipToBounds="False"
+                    HorizontalCacheLength="1"
+                    ItemsSource="{Binding DetailsRecommendations}"
+                    VerticalCacheLength="1">
+                  <ItemsRepeater.Layout>
+                    <layout:UniformGridLayout
+                        ItemsJustification="Start"
+                        MinItemHeight="320"
+                        MinItemWidth="190" />
+                  </ItemsRepeater.Layout>
+                  <ItemsRepeater.ItemTemplate>
                     <DataTemplate x:DataType="models:MediaCardItem">
                       <Button
                           Width="174"
@@ -1344,7 +1563,6 @@
                           <Border
                               Height="246"
                               Background="{DynamicResource Brush.Surface.Secondary}"
-                              BoxShadow="0 8 26 0 #1F000000"
                               CornerRadius="16"
                               ClipToBounds="True">
                             <Grid>
@@ -1354,7 +1572,7 @@
                                   Classes="symbol"
                                   Foreground="{DynamicResource Brush.Text.Secondary}"
                                   Text="movie" />
-                              <Image Source="{Binding ImageSource^}" Stretch="UniformToFill" />
+                              <Image Source="{Binding ImageSource.Value^}" Stretch="UniformToFill" />
                               <Border
                                   Padding="9,5"
                                   Margin="10"
@@ -1380,49 +1598,27 @@
                         </StackPanel>
                       </Button>
                     </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                  </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
               </StackPanel>
 
               <StackPanel Spacing="14">
                 <Grid ColumnDefinitions="*,Auto">
                   <TextBlock Classes="h2" Text="Комментарии" />
-                  <TextBlock Grid.Column="1" Classes="muted" FontSize="12" Text="{Binding DetailsComments.Count, StringFormat='{}{0} загружено'}" />
+                  <TextBlock
+                      Grid.Column="1"
+                      VerticalAlignment="Center"
+                      Classes="muted"
+                      FontSize="15"
+                      LineHeight="20"
+                      Text="{Binding DetailsComments.Count, StringFormat='{}{0} загружено'}" />
                 </Grid>
-                <ItemsControl ItemsSource="{Binding DetailsComments}">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="models:CommentCardItem">
-                      <Border Margin="{Binding Indent}" Padding="14" Classes="comment-card">
-                        <Grid ColumnDefinitions="38,*">
-                          <Border Width="38" Height="38" CornerRadius="19" ClipToBounds="True" Background="{DynamicResource Brush.Surface.Secondary}">
-                            <Image Source="{Binding AvatarSource^}" Stretch="UniformToFill" />
-                          </Border>
-                          <StackPanel Grid.Column="1" Margin="10,0,0,0" Spacing="5">
-                            <Grid ColumnDefinitions="*,Auto">
-                              <TextBlock FontSize="12" FontWeight="SemiBold" Text="{Binding Author}" />
-                              <TextBlock Grid.Column="1" Classes="muted" FontSize="10" Text="{Binding DateLabel}" />
-                            </Grid>
-                            <TextBlock FontSize="12" LineHeight="18" Text="{Binding Text}" TextWrapping="Wrap" />
-                            <StackPanel VerticalAlignment="Center" Orientation="Horizontal" Spacing="5">
-                              <TextBlock
-                                  VerticalAlignment="Center"
-                                  Classes="symbol"
-                                  FontSize="15"
-                                  LineHeight="16"
-                                  Text="thumb_up" />
-                              <TextBlock
-                                  VerticalAlignment="Center"
-                                  Classes="muted"
-                                  FontSize="12"
-                                  FontWeight="Medium"
-                                  LineHeight="16"
-                                  Text="{Binding Likes}" />
-                            </StackPanel>
-                          </StackPanel>
-                        </Grid>
-                      </Border>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
+                <ItemsControl ItemTemplate="{StaticResource CommentNodeTemplate}" ItemsSource="{Binding DetailsComments}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <StackPanel Spacing="12" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
                 </ItemsControl>
                 <Border
                     Padding="24"

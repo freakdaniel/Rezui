@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
 using HdRezka;
+using Serilog;
 
 namespace Rezui.Services;
 
@@ -30,9 +31,13 @@ public sealed class MirrorDiscoveryService : IMirrorDiscoveryService, IDisposabl
     private const string ValidationPassword = "Testpass123!";
     private readonly HttpClient _httpClient;
     private readonly bool _ownsHttpClient;
+    private readonly ILogger _logger;
 
-    public MirrorDiscoveryService(HttpClient? httpClient = null)
+    public MirrorDiscoveryService(
+        HttpClient? httpClient = null,
+        ILogger? logger = null)
     {
+        _logger = logger ?? Log.ForContext<MirrorDiscoveryService>();
         _ownsHttpClient = httpClient is null;
         _httpClient = httpClient ?? new HttpClient(
             new HttpClientHandler
@@ -48,10 +53,18 @@ public sealed class MirrorDiscoveryService : IMirrorDiscoveryService, IDisposabl
         IEnumerable<string> origins,
         CancellationToken cancellationToken = default)
     {
-        var probes = origins
+        var distinctOrigins = origins
             .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        _logger.Information("Probing {MirrorCount} HDRezka mirrors", distinctOrigins.Length);
+        var probes = distinctOrigins
             .Select(origin => ProbeOneAsync(origin, cancellationToken));
-        return await Task.WhenAll(probes);
+        var results = await Task.WhenAll(probes);
+        _logger.Information(
+            "Mirror probing completed; available={AvailableCount}, unavailable={UnavailableCount}",
+            results.Count(result => result.IsAvailable),
+            results.Count(result => !result.IsAvailable));
+        return results;
     }
 
     public async Task<bool> IsRezkaMirrorAsync(
@@ -65,6 +78,7 @@ public sealed class MirrorDiscoveryService : IMirrorDiscoveryService, IDisposabl
         }
         catch (ArgumentException)
         {
+            _logger.Debug("Mirror validation rejected malformed origin {Origin}", origin);
             return false;
         }
 
@@ -84,8 +98,9 @@ public sealed class MirrorDiscoveryService : IMirrorDiscoveryService, IDisposabl
         {
             throw;
         }
-        catch (Exception)
+        catch (Exception exception)
         {
+            _logger.Debug(exception, "Mirror validation failed for {OriginHost}", normalized.Host);
             return false;
         }
     }
@@ -119,27 +134,35 @@ public sealed class MirrorDiscoveryService : IMirrorDiscoveryService, IDisposabl
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/html"));
         request.Headers.Range = new RangeHeaderValue(0, 0);
 
-        var stopwatch = Stopwatch.StartNew();
+        var startedAt = Stopwatch.GetTimestamp();
         try
         {
             using var response = await _httpClient.SendAsync(
                 request,
                 HttpCompletionOption.ResponseHeadersRead,
                 timeout.Token);
-            stopwatch.Stop();
             var available = response.IsSuccessStatusCode;
+            var elapsed = Stopwatch.GetElapsedTime(startedAt);
+            _logger.Debug(
+                "Mirror probe {ProbeOutcome} for {OriginHost} in {DurationMs:0.0} ms with status {StatusCode}",
+                available ? "succeeded" : "failed",
+                normalized.Host,
+                elapsed.TotalMilliseconds,
+                (int)response.StatusCode);
             return new MirrorProbeResult(
                 normalizedOrigin,
                 normalized.Host,
-                available ? Math.Max(1, stopwatch.ElapsedMilliseconds) : null,
+                available ? Math.Max(1, (long)elapsed.TotalMilliseconds) : null,
                 available);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
+            _logger.Debug("Mirror probe timed out for {OriginHost}", normalized.Host);
             return Unavailable(normalizedOrigin, normalized.Host);
         }
-        catch (HttpRequestException)
+        catch (HttpRequestException exception)
         {
+            _logger.Debug(exception, "Mirror probe failed for {OriginHost}", normalized.Host);
             return Unavailable(normalizedOrigin, normalized.Host);
         }
     }

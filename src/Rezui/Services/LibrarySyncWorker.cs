@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.Threading.Channels;
+using Serilog;
 
 namespace Rezui.Services;
 
@@ -12,14 +14,18 @@ public enum LibrarySyncReason
 public sealed class LibrarySyncWorker : IDisposable
 {
     private readonly ILibrarySnapshotProvider _provider;
+    private readonly ILogger _logger;
     private readonly Channel<LibrarySyncReason> _requests;
     private readonly CancellationTokenSource _shutdown = new();
     private readonly Task _workerTask;
     private volatile bool _disposed;
 
-    public LibrarySyncWorker(ILibrarySnapshotProvider provider)
+    public LibrarySyncWorker(
+        ILibrarySnapshotProvider provider,
+        ILogger? logger = null)
     {
         _provider = provider;
+        _logger = logger ?? Log.ForContext<LibrarySyncWorker>();
         _requests = Channel.CreateBounded<LibrarySyncReason>(
             new BoundedChannelOptions(1)
             {
@@ -39,6 +45,7 @@ public sealed class LibrarySyncWorker : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         _requests.Writer.TryWrite(reason);
+        _logger.Debug("Library synchronization requested because {SyncReason}", reason);
     }
 
     private async Task RunAsync(CancellationToken cancellationToken)
@@ -47,13 +54,22 @@ public sealed class LibrarySyncWorker : IDisposable
         {
             while (await _requests.Reader.WaitToReadAsync(cancellationToken))
             {
-                while (_requests.Reader.TryRead(out _))
+                var reason = LibrarySyncReason.SessionRestored;
+                while (_requests.Reader.TryRead(out var nextReason))
                 {
+                    reason = nextReason;
                 }
 
                 try
                 {
+                    var startedAt = Stopwatch.GetTimestamp();
                     var snapshot = await _provider.GetLibraryAsync(cancellationToken);
+                    _logger.Information(
+                        "Library synchronized because {SyncReason} in {DurationMs:0.0} ms; continue watching={ContinueWatchingCount}, folders={FolderCount}",
+                        reason,
+                        Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds,
+                        snapshot.ContinueWatching.Count,
+                        snapshot.BookmarkFolders.Count);
                     SnapshotChanged?.Invoke(snapshot);
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -62,6 +78,10 @@ public sealed class LibrarySyncWorker : IDisposable
                 }
                 catch (Exception exception)
                 {
+                    _logger.Error(
+                        exception,
+                        "Library synchronization failed because {SyncReason}",
+                        reason);
                     SyncFailed?.Invoke(exception);
                 }
             }

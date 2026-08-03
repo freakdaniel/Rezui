@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.Net.Mail;
 using Avalonia;
@@ -9,12 +10,21 @@ using CommunityToolkit.Mvvm.Input;
 using HdRezka;
 using Rezui.Models;
 using Rezui.Services;
+using Serilog;
 
 namespace Rezui.ViewModels;
 
 public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 {
     private const int DetailsLoadMaximumAttempts = 4;
+    private const int HomeEntranceAnimationMilliseconds = 620;
+    private const int DetailsEntranceAnimationMilliseconds = 780;
+    private const int DetailsHeroMetadataMinimumVisibleMilliseconds = 900;
+    private const int DetailsHeroHeadingTransitionMilliseconds = 560;
+    private const double DetailsHeroTitleWidth = 720;
+    private const double DetailsHeroTitleTargetLines = 1.56;
+    private const double DetailsHeroTitleMinimumFontSize = 28;
+    private const double DetailsHeroTitleMaximumFontSize = 38;
 
     private const string LoginPrompt =
         "Войдите в приложение используя свой персональный аккаунт HDRezka";
@@ -25,6 +35,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private readonly ThemeService _themes;
     private readonly LibrarySyncWorker _librarySync;
     private readonly IMirrorDiscoveryService _mirrorDiscovery;
+    private readonly ILogger _logger;
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private CancellationTokenSource? _operationCancellation;
     private CancellationTokenSource? _detailsLoadCancellation;
@@ -42,6 +53,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private int _detailsImageUpgradeVersion;
     private int _pageTransitionVersion;
     private bool _hasDetailsPrimaryImageSource;
+    private Task<Bitmap?> _detailsPrimaryImageTask = Task.FromResult<Bitmap?>(null);
+    private Task<Bitmap?> _detailsUpgradeImageTask = Task.FromResult<Bitmap?>(null);
     private DetailsOpenRequest? _detailsOpenRequest;
     private Page _currentPage = Page.Home;
     private volatile bool _disposed;
@@ -53,7 +66,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         PlayerViewModel player,
         ThemeService themes,
         LibrarySyncWorker librarySync,
-        IMirrorDiscoveryService mirrorDiscovery)
+        IMirrorDiscoveryService mirrorDiscovery,
+        ILogger? logger = null)
     {
         _settingsService = settingsService;
         _rezka = rezka;
@@ -61,6 +75,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         _themes = themes;
         _librarySync = librarySync;
         _mirrorDiscovery = mirrorDiscovery;
+        _logger = logger ?? Log.ForContext<MainWindowViewModel>();
         Player = player;
         _librarySync.SnapshotChanged += OnLibrarySnapshotChanged;
         _librarySync.SyncFailed += OnLibrarySyncFailed;
@@ -208,6 +223,18 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private bool _isDetailsHeroSurfaceVisible;
+
+    [ObservableProperty]
+    private bool _isDetailsHeroMetadataReady;
+
+    [ObservableProperty]
+    private bool _isDetailsHeroMetadataVisible;
+
+    [ObservableProperty]
+    private bool _isDetailsHeroContentVisible;
+
+    [ObservableProperty]
+    private bool _useDetailedHeroEntrance;
 
     [ObservableProperty]
     private bool _canWatchDetails;
@@ -399,7 +426,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DetailsTitleFontSize))]
+    [NotifyPropertyChangedFor(nameof(DetailsTitleLineHeight))]
     private string _detailsTitle = string.Empty;
+
+    public double DetailsTitleFontSize => CalculateDetailsTitleFontSize(DetailsTitle);
+
+    public double DetailsTitleLineHeight => Math.Round(DetailsTitleFontSize * 1.1, 1);
 
     [ObservableProperty]
     private string _detailsOriginalTitle = string.Empty;
@@ -430,7 +463,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<MediaCardItem> DetailsRecommendations { get; } = [];
 
-    public ObservableCollection<CommentCardItem> DetailsComments { get; } = [];
+    public ObservableCollection<CommentNodeItem> DetailsComments { get; } = [];
 
     public ObservableCollection<string> DetailsCollections { get; } = [];
 
@@ -448,6 +481,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private int _commentsPage;
+
+    // Maps comment id -> node across paginated loads so replies arriving on a
+    // later page can find their parent built on an earlier one.
+    private Dictionary<long, CommentNodeItem> _commentNodeIndex = [];
 
     [ObservableProperty]
     private int _commentsTotalPages;
@@ -468,13 +505,16 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(CanLoadMoreComments));
 
     [ObservableProperty]
-    private Task<Bitmap?> _detailsImageSource = Task.FromResult<Bitmap?>(null);
+    private Bitmap? _detailsImageSource;
 
     [ObservableProperty]
-    private Task<Bitmap?> _detailsHeroUpgradeImageSource = Task.FromResult<Bitmap?>(null);
+    private Bitmap? _detailsHeroUpgradeImageSource;
 
     [ObservableProperty]
     private bool _isDetailsHeroImageUpgradeReady;
+
+    [ObservableProperty]
+    private bool _isDetailsHeroPrimaryImageVisible = true;
 
     private Uri? _detailsImageUrl;
 
@@ -825,6 +865,30 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
+    private void OpenLogsFolder()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = AppLogging.LogDirectory,
+                UseShellExecute = true
+            });
+            _logger.Information(
+                "Opened log directory {LogDirectory}",
+                AppLogging.LogDirectory);
+        }
+        catch (Exception exception)
+        {
+            _logger.Error(
+                exception,
+                "Could not open log directory {LogDirectory}",
+                AppLogging.LogDirectory);
+            StatusMessage = $"Логи находятся в {AppLogging.LogDirectory}";
+        }
+    }
+
+    [RelayCommand]
     private async Task SearchAsync()
     {
         ActiveCategory = null;
@@ -1117,10 +1181,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
         if (ContinueWatchingHero is { } hero)
         {
-            imageTasks.Add(hero.ImageSource);
+            imageTasks.Add(hero.ImageSource.Value);
+            imageTasks.Add(hero.BackgroundImageSource.Value);
         }
 
-        imageTasks.AddRange(Recent.Select(item => item.ImageSource));
         await Task.WhenAll(imageTasks.Distinct()).WaitAsync(cancellationToken);
     }
 
@@ -1128,7 +1192,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         Uri url,
         string previewTitle,
         Uri? previewImageUrl,
-        Task<Bitmap?> previewImageSource,
+        DeferredImageSource previewImageSource,
         string previewCategory)
     {
         _detailsOpenRequest = new DetailsOpenRequest(
@@ -1146,6 +1210,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
         try
         {
+            _logger.Information(
+                "Opening title {MediaHost}{MediaPath}",
+                url.Host,
+                url.AbsolutePath);
             if (IsDetailsVisible)
             {
                 await PlayPageExitAsync(Page.Details, detailsToken);
@@ -1183,15 +1251,25 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             detailsToken.ThrowIfCancellationRequested();
             if (cached is not null)
             {
+                _logger.Debug(
+                    "Presenting cached title metadata with simplified hero entrance for {MediaPath}",
+                    url.AbsolutePath);
+                UseDetailedHeroEntrance = false;
                 IsDetailsContentLoading = false;
                 IsDetailsContentReady = true;
                 IsDetailsContentLoadFailed = false;
                 ApplyMediaMetadata(cached, requestVersion, detailsToken);
+                IsDetailsHeroMetadataReady = true;
+                IsDetailsHeroMetadataVisible = true;
                 await PresentDetailsAsync(requestVersion, detailsToken);
                 StatusMessage = string.Empty;
             }
             else
             {
+                _logger.Debug(
+                    "Presenting uncached title preview with detailed hero entrance for {MediaPath}",
+                    url.AbsolutePath);
+                UseDetailedHeroEntrance = true;
                 IsDetailsContentLoading = true;
                 IsDetailsContentReady = false;
                 IsDetailsContentLoadFailed = false;
@@ -1235,14 +1313,22 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                         !cancellationToken.IsCancellationRequested &&
                         attempt < maximumAttempts)
                     {
-                        // A request timeout is transient; retry while the
-                        // navigation token itself is still active.
+                        _logger.Warning(
+                            "Title load timed out for {MediaPath}; retrying attempt {NextAttempt} of {MaximumAttempts}",
+                            url.AbsolutePath,
+                            attempt + 1,
+                            maximumAttempts);
                     }
                     catch (Exception exception) when (
                         IsTransientDetailsLoadException(exception) &&
                         attempt < maximumAttempts)
                     {
-                        // Network and mirror failures may recover on the next attempt.
+                        _logger.Warning(
+                            exception,
+                            "Transient title load failure for {MediaPath}; retrying attempt {NextAttempt} of {MaximumAttempts}",
+                            url.AbsolutePath,
+                            attempt + 1,
+                            maximumAttempts);
                     }
                     catch (OperationCanceledException) when (
                         !detailsToken.IsCancellationRequested)
@@ -1255,6 +1341,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                     catch (Exception exception) when (
                         exception is not OperationCanceledException)
                     {
+                        _logger.Error(
+                            exception,
+                            "Title load failed for {MediaPath}",
+                            url.AbsolutePath);
                         SetDetailsContentFailure(
                             ToUserMessage(exception),
                             requestVersion);
@@ -1265,7 +1355,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
         catch (OperationCanceledException) when (detailsToken.IsCancellationRequested)
         {
-            // The user left the pending title or opened another one.
+            _logger.Debug(
+                "Title opening cancelled for {MediaPath} because navigation changed",
+                url.AbsolutePath);
         }
         finally
         {
@@ -1304,15 +1396,22 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         CanWatchDetails = false;
         IsDetailsHeroBackgroundReady = false;
         IsDetailsHeroImageUpgradeReady = false;
+        IsDetailsHeroPrimaryImageVisible = true;
         IsDetailsHeroSurfaceVisible = false;
+        IsDetailsHeroMetadataReady = false;
+        IsDetailsHeroMetadataVisible = false;
+        IsDetailsHeroContentVisible = false;
+        UseDetailedHeroEntrance = false;
         DetailsTitle = string.Empty;
         DetailsOriginalTitle = string.Empty;
         DetailsDescription = string.Empty;
         DetailsTagline = string.Empty;
         DetailsMeta = string.Empty;
         DetailsRating = string.Empty;
-        DetailsImageSource = Task.FromResult<Bitmap?>(null);
-        DetailsHeroUpgradeImageSource = Task.FromResult<Bitmap?>(null);
+        _detailsPrimaryImageTask = Task.FromResult<Bitmap?>(null);
+        _detailsUpgradeImageTask = Task.FromResult<Bitmap?>(null);
+        DetailsImageSource = null;
+        DetailsHeroUpgradeImageSource = null;
         _detailsImageUrl = null;
         DetailsFacts.Clear();
         DetailsGenres.Clear();
@@ -1408,33 +1507,39 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         if (IsSeries && CanWatchDetails)
         {
             var media = _media;
-            var seasons = await Task.Run(
-                () => media.GetEpisodesInfoAsync(cancellationToken),
+            var seasons = await LoadSeriesInfoResilientAsync(
+                media,
                 cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
-            foreach (var season in seasons)
+            // A null result means every translation is Premium-protected: keep
+            // the metadata visible but leave the season/episode pickers empty
+            // instead of failing the whole details view.
+            if (seasons is not null)
             {
-                Seasons.Add(new ChoiceItem(season.Number, season.Title));
-            }
-
-            _suppressSeasonChange = true;
-            SelectedSeason = Seasons.FirstOrDefault();
-            _suppressSeasonChange = false;
-            if (SelectedSeason is { } selectedSeason)
-            {
-                var season = seasons.FirstOrDefault(item =>
-                    item.Number == selectedSeason.Value);
-                if (season is not null)
+                foreach (var season in seasons)
                 {
-                    foreach (var episode in season.Episodes)
-                    {
-                        Episodes.Add(new ChoiceItem(
-                            episode.Number,
-                            episode.Title));
-                    }
+                    Seasons.Add(new ChoiceItem(season.Number, season.Title));
                 }
 
-                SelectedEpisode = Episodes.FirstOrDefault();
+                _suppressSeasonChange = true;
+                SelectedSeason = Seasons.FirstOrDefault();
+                _suppressSeasonChange = false;
+                if (SelectedSeason is { } selectedSeason)
+                {
+                    var season = seasons.FirstOrDefault(item =>
+                        item.Number == selectedSeason.Value);
+                    if (season is not null)
+                    {
+                        foreach (var episode in season.Episodes)
+                        {
+                            Episodes.Add(new ChoiceItem(
+                                episode.Number,
+                                episode.Title));
+                        }
+                    }
+
+                    SelectedEpisode = Episodes.FirstOrDefault();
+                }
             }
         }
 
@@ -1471,10 +1576,133 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private static bool IsTransientDetailsLoadException(Exception exception) =>
         exception is HttpRequestException or HttpException or IOException or TimeoutException;
 
+    /// <summary>
+    /// Loads seasons and episodes for the details view, tolerating translators
+    /// the website marks as Premium-protected. The library's all-translators
+    /// <see cref="Media.GetEpisodesInfoAsync(CancellationToken)"/> aggregates
+    /// every translator with <c>Task.WhenAll</c>, so a single translator whose
+    /// response carries <c>premium_content</c> aborts the whole load with
+    /// <see cref="PremiumRequiredException"/> even when free translations exist.
+    /// For listing seasons/episodes we treat that as soft: fall back to the
+    /// non-premium translators one by one and merge what they provide.
+    /// </summary>
+    /// <returns>
+    /// Seasons merged across non-premium translators, or <see langword="null"/>
+    /// when none of them offered any data (genuinely Premium-only content).
+    /// </returns>
+    private static async Task<IReadOnlyList<Season>?> LoadSeriesInfoResilientAsync(
+        Media media,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await media.GetEpisodesInfoAsync(cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (PremiumRequiredException) when (
+            media.TranslationOptions.Count != 0)
+        {
+            // Aggregated load was vetoed by a Premium-marked translator.
+            // Rebuild the season/episode list from the remaining translators.
+        }
+
+        var candidates = media.TranslationOptions
+            .Where(translator => !translator.IsPremium || media.IsPremiumAccount)
+            .ToList();
+        if (candidates.Count == 0)
+        {
+            return null;
+        }
+
+        var perTranslator = new List<IReadOnlyDictionary<int, SeriesInfo>>();
+        foreach (var translator in candidates)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                var series = await media.GetSeriesInfoAsync(
+                    translator.Id.ToString(CultureInfo.InvariantCulture),
+                    cancellationToken).ConfigureAwait(false);
+                if (series is not null)
+                {
+                    perTranslator.Add(new Dictionary<int, SeriesInfo>
+                    {
+                        [translator.Id] = series,
+                    });
+                }
+            }
+            catch (PremiumRequiredException)
+            {
+                // This translator is Premium-locked too; skip it and keep going.
+            }
+        }
+
+        return perTranslator.Count == 0
+            ? null
+            : MergeSeriesInfo(perTranslator);
+    }
+
+    /// <summary>
+    /// Merges per-translator season/episode maps into a single ordered list,
+    /// mirroring how the library combines translations across translators.
+    /// Extracted from <see cref="LoadSeriesInfoResilientAsync"/> so the merge
+    /// logic can be unit-tested without network access.
+    /// </summary>
+    internal static IReadOnlyList<Season> MergeSeriesInfo(
+        IReadOnlyList<IReadOnlyDictionary<int, SeriesInfo>> sources)
+    {
+        var seasons = new SortedDictionary<int, (string Title, SortedDictionary<int, (string Title, List<EpisodeTranslation> Translations)> Episodes)>();
+        foreach (var source in sources)
+        {
+            foreach (var series in source.Values)
+            {
+                foreach (var season in series.Seasons)
+                {
+                    if (!seasons.TryGetValue(season.Key, out var bucket))
+                    {
+                        bucket = (season.Value, new SortedDictionary<int, (string, List<EpisodeTranslation>)>());
+                        seasons[season.Key] = bucket;
+                    }
+
+                    if (!series.Episodes.TryGetValue(season.Key, out var episodes))
+                    {
+                        continue;
+                    }
+
+                    foreach (var episode in episodes)
+                    {
+                        if (!bucket.Episodes.TryGetValue(episode.Key, out var episodeBucket))
+                        {
+                            episodeBucket = (episode.Value, new List<EpisodeTranslation>());
+                            bucket.Episodes[episode.Key] = episodeBucket;
+                        }
+
+                        episodeBucket.Translations.Add(new EpisodeTranslation(
+                            series.TranslatorId,
+                            series.TranslatorName,
+                            series.IsPremium));
+                    }
+                }
+            }
+        }
+
+        return seasons
+            .Select(season => new Season(
+                season.Key,
+                season.Value.Title,
+                season.Value.Episodes
+                    .Select(episode => new Episode(
+                        episode.Key,
+                        episode.Value.Title,
+                        episode.Value.Translations))
+                    .ToList()))
+            .ToList();
+    }
+
     private void ApplyMediaPreview(
         string title,
         Uri? imageUrl,
-        Task<Bitmap?> imageSource,
+        DeferredImageSource imageSource,
         string category,
         int requestVersion,
         CancellationToken cancellationToken)
@@ -1483,7 +1711,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         _detailsImageUrl = imageUrl;
         if (imageUrl is not null)
         {
-            SetDetailsImageSource(imageSource, requestVersion, cancellationToken);
+            SetDetailsImageSource(imageSource.Value, requestVersion, cancellationToken);
         }
 
         DetailsMeta = category;
@@ -1514,7 +1742,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         if (_detailsImageUrl is not null)
         {
             SetDetailsImageSource(
-                _images.LoadAsync(_detailsImageUrl, mediaUrl),
+                _images.LoadAsync(
+                    _detailsImageUrl,
+                    mediaUrl,
+                    ImageDecodeSize.Details),
                 requestVersion,
                 cancellationToken);
         }
@@ -1616,8 +1847,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         int requestVersion,
         CancellationToken cancellationToken)
     {
-        if (ReferenceEquals(DetailsImageSource, imageSource) ||
-            ReferenceEquals(DetailsHeroUpgradeImageSource, imageSource))
+        if (ReferenceEquals(_detailsPrimaryImageTask, imageSource) ||
+            ReferenceEquals(_detailsUpgradeImageTask, imageSource))
         {
             return;
         }
@@ -1625,7 +1856,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         if (_hasDetailsPrimaryImageSource)
         {
             IsDetailsHeroImageUpgradeReady = false;
-            DetailsHeroUpgradeImageSource = imageSource;
+            DetailsHeroUpgradeImageSource = null;
+            _detailsUpgradeImageTask = imageSource;
             var upgradeVersion = ++_detailsImageUpgradeVersion;
             _ = RevealDetailsHeroImageUpgradeAsync(
                 imageSource,
@@ -1638,9 +1870,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         _hasDetailsPrimaryImageSource = true;
         IsDetailsHeroBackgroundReady = false;
         IsDetailsHeroImageUpgradeReady = false;
-        DetailsHeroUpgradeImageSource = Task.FromResult<Bitmap?>(null);
+        IsDetailsHeroPrimaryImageVisible = true;
+        DetailsImageSource = null;
+        DetailsHeroUpgradeImageSource = null;
+        _detailsUpgradeImageTask = Task.FromResult<Bitmap?>(null);
         _detailsImageUpgradeVersion++;
-        DetailsImageSource = imageSource;
+        _detailsPrimaryImageTask = imageSource;
         var imageVersion = ++_detailsImageVersion;
         _ = RevealDetailsHeroBackgroundAsync(
             imageSource,
@@ -1674,8 +1909,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 await Task.Delay(TimeSpan.FromMilliseconds(16), cancellationToken);
             }
 
-            // Give the task binding one render turn to install the bitmap before
-            // the ready class starts its opacity transition.
+            if (requestVersion != _detailsRequestVersion ||
+                imageVersion != _detailsImageVersion)
+            {
+                return;
+            }
+
+            DetailsImageSource = image;
             await Task.Delay(TimeSpan.FromMilliseconds(20), cancellationToken);
             if (requestVersion == _detailsRequestVersion &&
                 imageVersion == _detailsImageVersion &&
@@ -1716,8 +1956,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 await Task.Delay(TimeSpan.FromMilliseconds(16), cancellationToken);
             }
 
-            // Keep the preview bitmap painted while the high-quality source is
-            // decoded, then crossfade the already-renderable replacement over it.
+            if (requestVersion != _detailsRequestVersion ||
+                upgradeVersion != _detailsImageUpgradeVersion)
+            {
+                return;
+            }
+
+            DetailsHeroUpgradeImageSource = image;
             await Task.Delay(TimeSpan.FromMilliseconds(20), cancellationToken);
             if (requestVersion == _detailsRequestVersion &&
                 upgradeVersion == _detailsImageUpgradeVersion &&
@@ -1726,6 +1971,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             {
                 IsDetailsHeroImageUpgradeReady = true;
                 IsDetailsHeroBackgroundReady = true;
+                await Task.Delay(TimeSpan.FromMilliseconds(360), cancellationToken);
+                if (requestVersion == _detailsRequestVersion &&
+                    upgradeVersion == _detailsImageUpgradeVersion &&
+                    IsDetailsVisible)
+                {
+                    IsDetailsHeroPrimaryImageVisible = false;
+                }
             }
         }
         catch (OperationCanceledException)
@@ -1740,7 +1992,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         return new PersonCardItem(
             person.Name,
             person.Job,
-            _images.LoadAsync(imageUrl, referer));
+            _images.Defer(imageUrl, referer, ImageDecodeSize.Avatar));
     }
 
     private void AddDetailFact(string label, string? value)
@@ -1758,10 +2010,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
+        var countryItems = countries
+            .Select((country, index) => CountryFlagAssets.Create(
+                country,
+                index < countries.Count - 1))
+            .ToArray();
         DetailsFacts.Add(new DetailFactItem(
             "Страны",
-            string.Join(", ", countries.Select(item => item.Name)),
-            countries.Select(CountryFlagAssets.Create).ToArray()));
+            string.Join(", ", countryItems.Select(item => item.Name)),
+            countryItems));
     }
 
     private void AddAgeFact(string? ageRating)
@@ -1862,19 +2119,31 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             if (replace)
             {
                 DetailsComments.Clear();
+                _commentNodeIndex = [];
             }
 
-            foreach (var comment in result.Items)
+            var requestVersion = _detailsRequestVersion;
+            var newNodes = BuildCommentTree(
+                result.Items,
+                comment =>
+                {
+                    var node = CreateCommentNode(comment, media);
+                    return (comment.Id, comment.ParentId, node);
+                },
+                _commentNodeIndex);
+            if (requestVersion != _detailsRequestVersion)
             {
-                Uri.TryCreate(comment.AvatarUrl, UriKind.Absolute, out var avatarUrl);
-                DetailsComments.Add(new CommentCardItem(
-                    comment.Id,
-                    comment.Author,
-                    comment.DateLabel,
-                    comment.Text,
-                    comment.Likes,
-                    new Thickness(Math.Min(comment.Depth, 4) * 24, 0, 0, 0),
-                    _images.LoadAsync(avatarUrl, media.Url)));
+                return;
+            }
+
+            foreach (var node in newNodes)
+            {
+                DetailsComments.Add(node);
+            }
+
+            foreach (var node in _commentNodeIndex.Values)
+            {
+                node.NotifyChildrenChanged();
             }
 
             CommentsPage = result.Page;
@@ -1890,6 +2159,80 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
+    private CommentNodeItem CreateCommentNode(CachedComment comment, Media media)
+    {
+        Uri.TryCreate(comment.AvatarUrl, UriKind.Absolute, out var avatarUrl);
+        return new CommentNodeItem(
+            comment.Id,
+            comment.ParentId,
+            comment.Depth,
+            comment.Author,
+            comment.DateLabel,
+            comment.Text,
+            comment.Likes,
+            _images.Defer(avatarUrl, media.Url, ImageDecodeSize.Avatar));
+    }
+
+    /// <summary>
+    /// Rebuilds a parent/child comment tree from the flat, in-nesting-order
+    /// list returned by the website, linking replies through
+    /// <see cref="CommentNodeItem.ParentId"/>. Existing nodes in
+    /// <paramref name="existingIndex"/> are reused across paginated loads so a
+    /// reply arriving on a later page attaches to the parent built earlier.
+    /// Replies whose parent has not been seen yet are treated as roots rather
+    /// than dropped, matching how the flat list degrades when pages are split.
+    /// </summary>
+    /// <typeparam name="TComment">
+    /// Flat source comment type (library <see cref="Comment"/> or cached).
+    /// </typeparam>
+    /// <param name="factory">
+    /// Builds a fresh <see cref="CommentNodeItem"/> and exposes the source
+    /// id/parentId for one comment without side effects.
+    /// </param>
+    /// <param name="existingIndex">
+    /// Shared id -> node map, mutated in place to include the new nodes.
+    /// </param>
+    /// <returns>
+    /// Only the roots produced by this batch (parent missing or already known).
+    /// </returns>
+    internal static IReadOnlyList<CommentNodeItem> BuildCommentTree<TComment>(
+        IReadOnlyList<TComment> comments,
+        Func<TComment, (long Id, long? ParentId, CommentNodeItem Node)> factory,
+        Dictionary<long, CommentNodeItem> existingIndex)
+    {
+        var built = new List<(long Id, long? ParentId, CommentNodeItem Node)>(comments.Count);
+        var batchNodes = new Dictionary<long, CommentNodeItem>();
+        foreach (var comment in comments)
+        {
+            var entry = factory(comment);
+            built.Add(entry);
+            batchNodes[entry.Id] = entry.Node;
+        }
+
+        var roots = new List<CommentNodeItem>();
+        foreach (var (id, parentId, node) in built)
+        {
+            if (parentId is { } parent &&
+                batchNodes.TryGetValue(parent, out var batchParent))
+            {
+                batchParent.Children.Add(node);
+            }
+            else if (parentId is { } existingParent &&
+                     existingIndex.TryGetValue(existingParent, out var knownParent))
+            {
+                knownParent.Children.Add(node);
+            }
+            else
+            {
+                roots.Add(node);
+            }
+
+            existingIndex[id] = node;
+        }
+
+        return roots;
+    }
+
     private async Task LoadEpisodesForSeasonAsync(
         int seasonNumber,
         CancellationToken cancellationToken = default)
@@ -1902,10 +2245,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         try
         {
             var media = _media;
-            var seasons = await Task.Run(
-                () => media.GetEpisodesInfoAsync(cancellationToken),
+            var seasons = await LoadSeriesInfoResilientAsync(
+                media,
                 cancellationToken);
-            var season = seasons.FirstOrDefault(item => item.Number == seasonNumber);
+            var season = seasons?.FirstOrDefault(item => item.Number == seasonNumber);
             Episodes.Clear();
             if (season is not null)
             {
@@ -1930,7 +2273,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         string category)
     {
         var displayTitle = TitleFormatter.Normalize(title);
-        var imageSource = _images.LoadAsync(imageUrl, url);
+        var imageSource = _images.Defer(imageUrl, url, ImageDecodeSize.Card);
         return new MediaCardItem(
             displayTitle,
             url,
@@ -2044,6 +2387,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         ContinueWatchingHero = latestEntry is not null && latestCard is not null
             ? new ContinueWatchingHeroItem(
                 latestCard,
+                _images.Defer(latestEntry.ImageUrl, latestEntry.Url, ImageDecodeSize.Hero),
                 BuildPlaybackPosition(latestEntry),
                 BuildLastViewedLabel(
                     latestEntry.Date,
@@ -2279,7 +2623,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         ProfileName = profileName;
         ProfileEmail = profileEmail;
         ProfileInitials = GetInitials(ProfileName);
-        ProfileImageSource = _images.LoadAsync(profile?.AvatarUrl, _rezka.Origin);
+        ProfileImageSource = _images.LoadAsync(
+            profile?.AvatarUrl,
+            _rezka.Origin,
+            ImageDecodeSize.Avatar);
         AccountLabel = IsPremium ? "Premium" : ProfileName;
     }
 
@@ -2342,9 +2689,29 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         CancellationToken cancellationToken = default,
         bool animateEntrance = true)
     {
-        if (_disposed ||
-            page == _currentPage && IsPageVisible(page))
+        if (_disposed)
         {
+            return;
+        }
+
+        if (page is not (Page.Details or Page.Player))
+        {
+            CancelDetailsLoad(invalidateRequest: true);
+        }
+
+        if (page == _currentPage && IsPageVisible(page))
+        {
+            if (!IsPageLeaving(page))
+            {
+                return;
+            }
+
+            _pageNavigationCancellation?.Cancel();
+            _pageTransitionVersion++;
+            RestorePageAfterCancelledExit(page);
+            _logger.Debug(
+                "Cancelled pending exit and restored {Page}",
+                page);
             return;
         }
 
@@ -2356,17 +2723,17 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         _pageNavigationCancellation = navigationCancellation;
         var transitionVersion = ++_pageTransitionVersion;
         var previousPage = _currentPage;
+        _logger.Debug(
+            "Navigating from {PreviousPage} to {NextPage}; animated={AnimateEntrance}",
+            previousPage,
+            page,
+            animateEntrance);
 
         IsProfilePopupOpen = false;
         IsCategoryMenuOpen = false;
         if (page != Page.Library)
         {
             ActiveCategory = null;
-        }
-
-        if (page is not (Page.Details or Page.Player))
-        {
-            CancelDetailsLoad();
         }
 
         try
@@ -2393,12 +2760,28 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             ShowPage(page);
             if (page == Page.Details)
             {
-                _ = RevealDetailsHeroLayersAsync(transitionVersion);
+                _ = RevealDetailsHeroLayersAsync(
+                    transitionVersion,
+                    _detailsRequestVersion);
+            }
+
+            if (animateEntrance && page is Page.Home or Page.Details)
+            {
+                _ = CompletePageEntranceAsync(
+                    page,
+                    transitionVersion,
+                    _detailsRequestVersion);
             }
         }
         catch (OperationCanceledException)
         {
-            // A newer navigation request superseded this transition.
+            if (transitionVersion == _pageTransitionVersion)
+            {
+                RestorePageAfterCancelledExit(previousPage);
+                _logger.Debug(
+                    "Restored {Page} after its page transition was cancelled",
+                    previousPage);
+            }
         }
         finally
         {
@@ -2417,34 +2800,85 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             IsHomeEntering = false;
             IsHomeLeaving = true;
-            await Task.Delay(TimeSpan.FromMilliseconds(320), cancellationToken);
+            await Task.Delay(TimeSpan.FromMilliseconds(300), cancellationToken);
         }
         else if (page == Page.Details && IsDetailsVisible)
         {
             IsDetailsEntering = false;
             IsDetailsLeaving = true;
-            IsDetailsHeroSurfaceVisible = false;
-            IsDetailsHeroBackgroundReady = false;
-            await Task.Delay(TimeSpan.FromMilliseconds(540), cancellationToken);
+            await Task.Delay(TimeSpan.FromMilliseconds(300), cancellationToken);
         }
     }
 
-    private async Task RevealDetailsHeroLayersAsync(int transitionVersion)
+    private async Task CompletePageEntranceAsync(
+        Page page,
+        int transitionVersion,
+        int detailsRequestVersion)
+    {
+        var duration = page == Page.Home
+            ? HomeEntranceAnimationMilliseconds
+            : DetailsEntranceAnimationMilliseconds;
+        await Task.Delay(
+            TimeSpan.FromMilliseconds(duration),
+            _lifetimeCancellation.Token);
+        if (_disposed ||
+            transitionVersion != _pageTransitionVersion ||
+            !IsPageVisible(page) ||
+            page == Page.Details &&
+            (detailsRequestVersion != _detailsRequestVersion || IsDetailsLeaving))
+        {
+            return;
+        }
+
+        if (page == Page.Home)
+        {
+            IsHomeEntering = false;
+        }
+        else
+        {
+            IsDetailsEntering = false;
+        }
+
+        _logger.Debug(
+            "Completed transient entrance state for {Page}; transition={TransitionVersion}, details request={DetailsRequestVersion}",
+            page,
+            transitionVersion,
+            detailsRequestVersion);
+    }
+
+    private async Task RevealDetailsHeroLayersAsync(
+        int transitionVersion,
+        int requestVersion)
     {
         try
         {
             await Task.Delay(
                 TimeSpan.FromMilliseconds(20),
                 _lifetimeCancellation.Token);
-            if (transitionVersion != _pageTransitionVersion || !IsDetailsVisible)
+            if (transitionVersion != _pageTransitionVersion ||
+                requestVersion != _detailsRequestVersion ||
+                !IsDetailsVisible ||
+                IsDetailsLeaving)
             {
                 return;
             }
 
             IsDetailsHeroSurfaceVisible = true;
+            IsDetailsHeroContentVisible = true;
+            if (UseDetailedHeroEntrance)
+            {
+                _ = RevealDetailsHeroMetadataAsync(
+                    transitionVersion,
+                    requestVersion);
+            }
+            else
+            {
+                IsDetailsHeroMetadataReady = true;
+                IsDetailsHeroMetadataVisible = true;
+            }
             _ = RevealDetailsHeroBackgroundAsync(
-                DetailsImageSource,
-                _detailsRequestVersion,
+                _detailsPrimaryImageTask,
+                requestVersion,
                 _detailsImageVersion,
                 _lifetimeCancellation.Token);
         }
@@ -2452,6 +2886,94 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             // The application closed before the next details frame.
         }
+    }
+
+    private bool IsPageLeaving(Page page) => page switch
+    {
+        Page.Home => IsHomeLeaving,
+        Page.Details => IsDetailsLeaving,
+        _ => false
+    };
+
+    private void RestorePageAfterCancelledExit(Page page)
+    {
+        if (page == Page.Home && IsHomeVisible)
+        {
+            IsHomeLeaving = false;
+            IsHomeEntering = false;
+        }
+        else if (page == Page.Details && IsDetailsVisible)
+        {
+            IsDetailsLeaving = false;
+            IsDetailsEntering = false;
+        }
+    }
+
+    private async Task RevealDetailsHeroMetadataAsync(
+        int transitionVersion,
+        int requestVersion)
+    {
+        await Task.Delay(TimeSpan.FromMilliseconds(DetailsHeroMetadataMinimumVisibleMilliseconds));
+        while (!IsDetailsContentReady)
+        {
+            if (_disposed ||
+                transitionVersion != _pageTransitionVersion ||
+                requestVersion != _detailsRequestVersion ||
+                !IsDetailsVisible ||
+                IsDetailsLeaving ||
+                IsDetailsContentLoadFailed)
+            {
+                return;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(40));
+        }
+
+        if (!_disposed &&
+            transitionVersion == _pageTransitionVersion &&
+            requestVersion == _detailsRequestVersion &&
+            IsDetailsVisible &&
+            !IsDetailsLeaving)
+        {
+            IsDetailsHeroMetadataReady = true;
+        }
+
+        await Task.Delay(TimeSpan.FromMilliseconds(DetailsHeroHeadingTransitionMilliseconds));
+        if (!_disposed &&
+            transitionVersion == _pageTransitionVersion &&
+            requestVersion == _detailsRequestVersion &&
+            IsDetailsVisible &&
+            !IsDetailsLeaving &&
+            IsDetailsContentReady)
+        {
+            IsDetailsHeroMetadataVisible = true;
+        }
+    }
+
+    internal static double CalculateDetailsTitleFontSize(string? title)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            return DetailsHeroTitleMaximumFontSize;
+        }
+
+        var estimatedGlyphWidth = title.Sum(character => character switch
+        {
+            _ when char.IsWhiteSpace(character) => 0.3,
+            _ when char.IsUpper(character) => 0.66,
+            _ when char.IsDigit(character) => 0.56,
+            _ when char.IsPunctuation(character) => 0.34,
+            _ => 0.55
+        });
+        var fittedFontSize = DetailsHeroTitleWidth * DetailsHeroTitleTargetLines /
+            Math.Max(estimatedGlyphWidth, 1);
+
+        return Math.Round(
+            Math.Clamp(
+                fittedFontSize,
+                DetailsHeroTitleMinimumFontSize,
+                DetailsHeroTitleMaximumFontSize),
+            1);
     }
 
     private bool IsPageVisible(Page page) => page switch
@@ -2484,8 +3006,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
-    private void CancelDetailsLoad()
+    private void CancelDetailsLoad(bool invalidateRequest = false)
     {
+        if (invalidateRequest)
+        {
+            _detailsRequestVersion++;
+        }
+
         var cancellation = _detailsLoadCancellation;
         _detailsLoadCancellation = null;
         cancellation?.Cancel();
@@ -2805,7 +3332,16 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         LoginFailedException => "Не удалось войти: проверьте почту и пароль",
         LoginRequiredException => "Для этого действия нужно войти в аккаунт",
-        PremiumRequiredException => "Выбранный перевод или качество требует Premium",
+        PremiumRequiredException premium => premium.Feature switch
+        {
+            PremiumFeature.Content =>
+                "Сайт пометил тайтл как Premium. Часть переводов может быть недоступна — попробуйте другое зеркало или переоткройте тайтл",
+            PremiumFeature.Translation =>
+                premium.Name is null
+                    ? "Выбранный перевод требует Premium"
+                    : $"Перевод «{premium.Name}» требует Premium",
+            _ => "Выбранное качество требует Premium",
+        },
         CaptchaException => "Сайт запросил CAPTCHA. Откройте зеркало в браузере и повторите попытку",
         HttpException => "Зеркало вернуло ошибку. Проверьте адрес или попробуйте позже",
         ParseException => "Структура страницы изменилась, данные не удалось разобрать",
@@ -2843,7 +3379,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         Uri Url,
         string PreviewTitle,
         Uri? PreviewImageUrl,
-        Task<Bitmap?> PreviewImageSource,
+        DeferredImageSource PreviewImageSource,
         string PreviewCategory);
 
     private enum Page

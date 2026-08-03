@@ -1,10 +1,9 @@
-using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
-using Avalonia.Threading;
+using Avalonia.Rendering;
 using Avalonia.VisualTree;
 using Rezui.Services;
 using Rezui.ViewModels;
@@ -13,7 +12,12 @@ namespace Rezui.Views;
 
 public sealed partial class MainWindow : Window
 {
-    private readonly Dictionary<Image, DispatcherTimer> _continueBackgroundTimers = [];
+    private const RendererDebugOverlays PerformanceOverlays =
+        RendererDebugOverlays.Fps |
+        RendererDebugOverlays.DirtyRects |
+        RendererDebugOverlays.LayoutTimeGraph |
+        RendererDebugOverlays.RenderTimeGraph;
+
     private readonly Dictionary<ScrollViewer, SmoothScrollState> _smoothScrollStates = [];
     private readonly Cursor _autoScrollCursor = new(StandardCursorType.SizeNorthSouth);
     private AutoScrollState? _autoScrollState;
@@ -25,6 +29,7 @@ public sealed partial class MainWindow : Window
         DetailsScrollViewer.PropertyChanged += OnDetailsScrollViewerPropertyChanged;
         Activated += OnActivated;
         Deactivated += OnDeactivated;
+        Opened += OnOpened;
         Closed += OnClosed;
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
         AddHandler(PointerPressedEvent, OnPreviewPointerPressed, RoutingStrategies.Tunnel);
@@ -83,6 +88,15 @@ public sealed partial class MainWindow : Window
 
     private void OnPreviewKeyDown(object? sender, KeyEventArgs eventArgs)
     {
+#if DEBUG
+        if (eventArgs.Key == Key.F10)
+        {
+            TogglePerformanceOverlays();
+            eventArgs.Handled = true;
+            return;
+        }
+#endif
+
         if (eventArgs.Key == Key.Escape && _autoScrollState is not null)
         {
             StopAutoScroll();
@@ -237,52 +251,6 @@ public sealed partial class MainWindow : Window
             : TextWrapping.Wrap;
     }
 
-    private void ContinueBackground_OnAttachedToVisualTree(
-        object? sender,
-        VisualTreeAttachmentEventArgs eventArgs)
-    {
-        if (sender is not Image image ||
-            _continueBackgroundTimers.ContainsKey(image) ||
-            image.RenderTransform is not TransformGroup transformGroup)
-        {
-            return;
-        }
-
-        var translation = transformGroup.Children
-            .OfType<TranslateTransform>()
-            .FirstOrDefault();
-        if (translation is null)
-        {
-            return;
-        }
-
-        var startedAt = Stopwatch.GetTimestamp();
-        var timer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromMilliseconds(50)
-        };
-        timer.Tick += (_, _) =>
-        {
-            var elapsed = Stopwatch.GetElapsedTime(startedAt).TotalSeconds;
-            var angle = elapsed / 24 * Math.Tau;
-            translation.X = Math.Cos(angle) * 7;
-            translation.Y = Math.Sin(angle) * 5;
-        };
-        _continueBackgroundTimers.Add(image, timer);
-        timer.Start();
-    }
-
-    private void ContinueBackground_OnDetachedFromVisualTree(
-        object? sender,
-        VisualTreeAttachmentEventArgs eventArgs)
-    {
-        if (sender is Image image &&
-            _continueBackgroundTimers.Remove(image, out var timer))
-        {
-            timer.Stop();
-        }
-    }
-
     private void OnActivated(object? sender, EventArgs eventArgs)
     {
         if (DataContext is MainWindowViewModel viewModel)
@@ -291,11 +259,35 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private void OnOpened(object? sender, EventArgs eventArgs)
+    {
+#if DEBUG
+        if (string.Equals(
+                Environment.GetEnvironmentVariable("REZUI_PERF_OVERLAY"),
+                "1",
+                StringComparison.Ordinal))
+        {
+            RendererDiagnostics.DebugOverlays = PerformanceOverlays;
+        }
+#endif
+    }
+
+#if DEBUG
+    private void TogglePerformanceOverlays()
+    {
+        RendererDiagnostics.DebugOverlays =
+            RendererDiagnostics.DebugOverlays == RendererDebugOverlays.None
+                ? PerformanceOverlays
+                : RendererDebugOverlays.None;
+    }
+#endif
+
     private void OnDeactivated(object? sender, EventArgs eventArgs) => StopAutoScroll();
 
     private void OnClosed(object? sender, EventArgs eventArgs)
     {
         DetailsScrollViewer.PropertyChanged -= OnDetailsScrollViewerPropertyChanged;
+        Opened -= OnOpened;
         StopAutoScroll();
         foreach (var state in _smoothScrollStates.Values)
         {
@@ -303,12 +295,6 @@ public sealed partial class MainWindow : Window
         }
 
         _smoothScrollStates.Clear();
-        foreach (var timer in _continueBackgroundTimers.Values)
-        {
-            timer.Stop();
-        }
-
-        _continueBackgroundTimers.Clear();
         _autoScrollCursor.Dispose();
     }
 

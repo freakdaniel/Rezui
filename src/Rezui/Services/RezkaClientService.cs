@@ -1,5 +1,6 @@
 using HdRezka;
 using Rezui.Models;
+using Serilog;
 
 namespace Rezui.Services;
 
@@ -13,6 +14,7 @@ public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
 {
     private readonly SettingsService _settingsService;
     private readonly LocalCacheStore? _cache;
+    private readonly ILogger _logger;
     private Client? _client;
     private Media? _currentMedia;
     private AppSettings? _settings;
@@ -20,10 +22,12 @@ public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
 
     public RezkaClientService(
         SettingsService settingsService,
-        LocalCacheStore? cache = null)
+        LocalCacheStore? cache = null,
+        ILogger? logger = null)
     {
         _settingsService = settingsService;
         _cache = cache;
+        _logger = logger ?? Log.ForContext<RezkaClientService>();
     }
 
     public bool IsConfigured => _client is not null;
@@ -53,6 +57,10 @@ public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
         }
 
         CreateClient(settings.Origin, _auth.Cookies);
+        _logger.Information(
+            "HDRezka client initialized for {OriginHost}; remembered session={HasRememberedSession}",
+            _client!.Origin?.Host ?? "unknown",
+            settings.RememberSession && _auth.Cookies.Count > 0);
         if (!settings.RememberSession || _auth.Cookies.Count == 0)
         {
             return null;
@@ -61,7 +69,12 @@ public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
         var state = await _client!.GetAuthenticationStateAsync(cancellationToken);
         if (!state.IsAuthenticated)
         {
+            _logger.Warning("Remembered HDRezka session is no longer authenticated");
             await ForgetSessionAsync(cancellationToken);
+        }
+        else
+        {
+            _logger.Information("Remembered HDRezka session restored");
         }
 
         return state;
@@ -96,6 +109,10 @@ public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
 
         CreateClient(_settings.Origin, _auth.Cookies);
         await _settingsService.SaveAsync(_settings, cancellationToken);
+        _logger.Information(
+            "HDRezka origin configured as {OriginHost}; changed={OriginChanged}",
+            normalized.Host,
+            changed);
     }
 
     public async Task<AuthenticationState> LoginAsync(
@@ -124,6 +141,7 @@ public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
             await _cache.RemoveAreaAsync(CacheArea.Account, cancellationToken);
             await _cache.RemoveAreaAsync(CacheArea.Library, cancellationToken);
         }
+        _logger.Information("HDRezka login completed successfully");
         return state;
     }
 
@@ -157,6 +175,9 @@ public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
                 cancellationToken);
             if (cached is not null)
             {
+                _logger.Warning(
+                    exception,
+                    "Profile request failed; using cached profile");
                 return cached;
             }
 
@@ -202,6 +223,9 @@ public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
                 cancellationToken);
             if (cached is not null)
             {
+                _logger.Warning(
+                    exception,
+                    "Library request failed; using cached library snapshot");
                 return cached;
             }
 
@@ -219,6 +243,7 @@ public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
         finally
         {
             await ForgetSessionAsync(cancellationToken);
+            _logger.Information("HDRezka session logged out and local authentication cleared");
         }
     }
 
@@ -237,6 +262,10 @@ public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
     {
         EnsureConfigured();
         var media = await _client!.GetAsync(url, cancellationToken);
+        _logger.Information(
+            "Loaded media metadata from {MediaHost}{MediaPath}",
+            url.Host,
+            url.AbsolutePath);
         var previous = Interlocked.Exchange(ref _currentMedia, media);
         previous?.Dispose();
         if (_cache is not null)
@@ -253,7 +282,10 @@ public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
             catch (Exception exception) when (
                 exception is not OperationCanceledException and not LoginRequiredException)
             {
-                // Metadata caching is best-effort; a valid media page still wins.
+                _logger.Warning(
+                    exception,
+                    "Could not persist media metadata cache for {MediaPath}",
+                    url.AbsolutePath);
             }
         }
 
@@ -271,13 +303,22 @@ public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
 
         try
         {
-            return await _cache.GetJsonAsync<CachedMediaMetadata>(
+            var cached = await _cache.GetJsonAsync<CachedMediaMetadata>(
                 CacheArea.MediaMetadata,
                 NormalizeMediaCacheKey(url),
                 cancellationToken);
+            _logger.Debug(
+                "Media metadata cache {CacheOutcome} for {MediaPath}",
+                cached is null ? "miss" : "hit",
+                url.AbsolutePath);
+            return cached;
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
+            _logger.Warning(
+                exception,
+                "Media metadata cache read failed for {MediaPath}",
+                url.AbsolutePath);
             return null;
         }
     }
@@ -391,7 +432,11 @@ public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
         string origin,
         IReadOnlyDictionary<string, string> cookies)
     {
-        var options = new ClientOptions();
+        var options = new ClientOptions
+        {
+            ResponseCacheDuration = TimeSpan.FromSeconds(30),
+            MaxCachedResponses = 128
+        };
         foreach (var pair in cookies)
         {
             options.Cookies[pair.Key] = pair.Value;
@@ -403,6 +448,10 @@ public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
 
         var oldMedia = Interlocked.Exchange(ref _currentMedia, null);
         oldMedia?.Dispose();
+        _logger.Debug(
+            "Created HDRezka client for {OriginHost} with {ResponseCacheSeconds}s response cache",
+            next.Origin?.Host ?? "unknown",
+            options.ResponseCacheDuration.TotalSeconds);
     }
 
     private async Task ForgetSessionAsync(CancellationToken cancellationToken)

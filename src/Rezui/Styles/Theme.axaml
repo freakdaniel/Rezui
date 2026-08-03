@@ -260,7 +260,7 @@
   <Style Selector="Button.details-watch:pointerover /template/ Border#PART_DetailsWatchSurface">
     <Setter Property="BoxShadow" Value="0 14 34 0 #3D000000" />
   </Style>
-  <Style Selector="Grid.details-hero-backdrop, Image.details-hero-background, Border.details-hero-poster, TextBlock.details-hero-title, TextBlock.details-hero-original, WrapPanel.details-hero-meta, Border.details-hero-action, StackPanel.details-body">
+  <Style Selector="Grid.details-hero-backdrop, Image.details-hero-background, StackPanel.details-hero-heading, StackPanel.details-hero-metadata, Border.details-hero-poster, TextBlock.details-hero-title, TextBlock.details-hero-original, WrapPanel.details-hero-meta, Border.details-hero-action, StackPanel.details-body">
     <Setter Property="RenderTransformOrigin" Value="50%,50%" />
   </Style>
   <Style Selector="Border.details-hero-base">
@@ -350,17 +350,48 @@
     <Setter Property="ScaleTransform.ScaleX" Value="1" />
     <Setter Property="ScaleTransform.ScaleY" Value="1" />
   </Style>
-  <Style Selector="StackPanel.details-hero-content">
-    <Setter Property="RenderTransform" Value="translateY(10px)" />
+  <Style Selector="StackPanel.details-hero-heading">
+    <Setter Property="Margin" Value="0,139,0,0" />
     <Setter Property="Transitions">
       <Transitions>
-        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.32">
+        <ThicknessTransition Property="Margin" Duration="0:0:0.56">
+          <ThicknessTransition.Easing><CubicEaseInOut /></ThicknessTransition.Easing>
+        </ThicknessTransition>
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="StackPanel.details-hero-content">
+    <Setter Property="Opacity" Value="0" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.22">
+          <DoubleTransition.Easing><CubicEaseOut /></DoubleTransition.Easing>
+        </DoubleTransition>
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="StackPanel.details-hero-content.visible">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+  <Style Selector="StackPanel.details-hero-content.move-ready StackPanel.details-hero-heading">
+    <Setter Property="Margin" Value="0" />
+  </Style>
+  <Style Selector="StackPanel.details-hero-metadata">
+    <Setter Property="Opacity" Value="0" />
+    <Setter Property="RenderTransform" Value="translateY(20px)" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.38">
+          <DoubleTransition.Easing><CubicEaseOut /></DoubleTransition.Easing>
+        </DoubleTransition>
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.46">
           <TransformOperationsTransition.Easing><CubicEaseOut /></TransformOperationsTransition.Easing>
         </TransformOperationsTransition>
       </Transitions>
     </Setter>
   </Style>
-  <Style Selector="StackPanel.details-hero-content.watch-ready">
+  <Style Selector="StackPanel.details-hero-metadata.visible">
+    <Setter Property="Opacity" Value="1" />
     <Setter Property="RenderTransform" Value="translateY(0px)" />
   </Style>
   <Style Selector="StackPanel.details-body">
@@ -399,7 +430,7 @@
   </Style>
   <Style Selector="ScrollViewer.details-page.entering Image.details-hero-background">
     <Style.Animations>
-      <Animation Duration="0:0:0.72" FillMode="Both">
+      <Animation Duration="0:0:0.72" FillMode="Backward">
         <Animation.Easing><CubicEaseOut /></Animation.Easing>
         <KeyFrame Cue="0%">
           <Setter Property="ScaleTransform.ScaleX" Value="1.12" />
@@ -412,9 +443,9 @@
       </Animation>
     </Style.Animations>
   </Style>
-  <Style Selector="ScrollViewer.details-page.entering Border.details-hero-poster">
+  <Style Selector="ScrollViewer.details-page.entering.detailed-hero Border.details-hero-poster">
     <Style.Animations>
-      <Animation Duration="0:0:0.56" Delay="0:0:0.07" FillMode="Both">
+      <Animation Duration="0:0:0.56" Delay="0:0:0.07" FillMode="Backward">
         <Animation.Easing><CubicEaseOut /></Animation.Easing>
         <KeyFrame Cue="0%">
           <Setter Property="Opacity" Value="0" />
@@ -431,9 +462,9 @@
       </Animation>
     </Style.Animations>
   </Style>
-  <Style Selector="ScrollViewer.details-page.entering TextBlock.details-hero-title">
+  <Style Selector="ScrollViewer.details-page.entering.detailed-hero TextBlock.details-hero-title">
     <Style.Animations>
-      <Animation Duration="0:0:0.52" Delay="0:0:0.15" FillMode="Both">
+      <Animation Duration="0:0:0.52" Delay="0:0:0.15" FillMode="Backward">
         <Animation.Easing><CubicEaseOut /></Animation.Easing>
         <KeyFrame Cue="0%">
           <Setter Property="Opacity" Value="0" />
@@ -446,9 +477,9 @@
       </Animation>
     </Style.Animations>
   </Style>
-  <Style Selector="ScrollViewer.details-page.entering TextBlock.details-hero-original">
+  <Style Selector="ScrollViewer.details-page.entering.detailed-hero TextBlock.details-hero-original">
     <Style.Animations>
-      <Animation Duration="0:0:0.46" Delay="0:0:0.22" FillMode="Both">
+      <Animation Duration="0:0:0.46" Delay="0:0:0.22" FillMode="Backward">
         <Animation.Easing><CubicEaseOut /></Animation.Easing>
         <KeyFrame Cue="0%">
           <Setter Property="Opacity" Value="0" />
@@ -461,9 +492,9 @@
       </Animation>
     </Style.Animations>
   </Style>
-  <Style Selector="ScrollViewer.details-page.entering WrapPanel.details-hero-meta">
+  <Style Selector="ScrollViewer.details-page.entering.detailed-hero WrapPanel.details-hero-meta">
     <Style.Animations>
-      <Animation Duration="0:0:0.44" Delay="0:0:0.28" FillMode="Both">
+      <Animation Duration="0:0:0.44" Delay="0:0:0.28" FillMode="Backward">
         <Animation.Easing><CubicEaseOut /></Animation.Easing>
         <KeyFrame Cue="0%">
           <Setter Property="Opacity" Value="0" />
@@ -476,9 +507,9 @@
       </Animation>
     </Style.Animations>
   </Style>
-  <Style Selector="ScrollViewer.details-page.entering Border.details-hero-action">
+  <Style Selector="ScrollViewer.details-page.entering.detailed-hero Border.details-hero-action">
     <Style.Animations>
-      <Animation Duration="0:0:0.46" Delay="0:0:0.34" FillMode="Both">
+      <Animation Duration="0:0:0.46" Delay="0:0:0.34" FillMode="Backward">
         <Animation.Easing><CubicEaseOut /></Animation.Easing>
         <KeyFrame Cue="0%">
           <Setter Property="Opacity" Value="0" />
@@ -497,7 +528,7 @@
   </Style>
   <Style Selector="ScrollViewer.details-page.entering StackPanel.details-body">
     <Style.Animations>
-      <Animation Duration="0:0:0.52" Delay="0:0:0.3" FillMode="Both">
+      <Animation Duration="0:0:0.52" Delay="0:0:0.3" FillMode="Backward">
         <Animation.Easing><CubicEaseOut /></Animation.Easing>
         <KeyFrame Cue="0%">
           <Setter Property="Opacity" Value="0" />
@@ -515,7 +546,7 @@
   </Style>
   <Style Selector="ScrollViewer.home-page.entering StackPanel.home-content">
     <Style.Animations>
-      <Animation Duration="0:0:0.34" FillMode="Both">
+      <Animation Duration="0:0:0.34" FillMode="Backward">
         <Animation.Easing><CubicEaseOut /></Animation.Easing>
         <KeyFrame Cue="0%">
           <Setter Property="Opacity" Value="0" />
@@ -534,7 +565,7 @@
   </Style>
   <Style Selector="ScrollViewer.home-page.entering Border.home-hero">
     <Style.Animations>
-      <Animation Duration="0:0:0.5" FillMode="Both">
+      <Animation Duration="0:0:0.5" FillMode="Backward">
         <Animation.Easing><CubicEaseOut /></Animation.Easing>
         <KeyFrame Cue="0%">
           <Setter Property="Opacity" Value="0" />
@@ -553,7 +584,7 @@
   </Style>
   <Style Selector="ScrollViewer.home-page.entering StackPanel.home-quick">
     <Style.Animations>
-      <Animation Duration="0:0:0.42" Delay="0:0:0.09" FillMode="Both">
+      <Animation Duration="0:0:0.42" Delay="0:0:0.09" FillMode="Backward">
         <Animation.Easing><CubicEaseOut /></Animation.Easing>
         <KeyFrame Cue="0%">
           <Setter Property="Opacity" Value="0" />
@@ -568,7 +599,7 @@
   </Style>
   <Style Selector="ScrollViewer.home-page.entering StackPanel.home-recent">
     <Style.Animations>
-      <Animation Duration="0:0:0.42" Delay="0:0:0.16" FillMode="Both">
+      <Animation Duration="0:0:0.42" Delay="0:0:0.16" FillMode="Backward">
         <Animation.Easing><CubicEaseOut /></Animation.Easing>
         <KeyFrame Cue="0%">
           <Setter Property="Opacity" Value="0" />
@@ -581,119 +612,41 @@
       </Animation>
     </Style.Animations>
   </Style>
-  <Style Selector="ScrollViewer.home-page.leaving StackPanel.home-content">
+  <Style Selector="ScrollViewer.home-page.leaving, ScrollViewer.details-page.leaving">
+    <Setter Property="Opacity" Value="0" />
     <Style.Animations>
-      <Animation Duration="0:0:0.3" FillMode="Both">
+      <Animation Duration="0:0:0.28" FillMode="Backward">
         <Animation.Easing><CubicEaseIn /></Animation.Easing>
         <KeyFrame Cue="0%">
           <Setter Property="Opacity" Value="1" />
-          <Setter Property="TranslateTransform.Y" Value="0" />
-          <Setter Property="ScaleTransform.ScaleX" Value="1" />
-          <Setter Property="ScaleTransform.ScaleY" Value="1" />
         </KeyFrame>
         <KeyFrame Cue="100%">
           <Setter Property="Opacity" Value="0" />
-          <Setter Property="TranslateTransform.Y" Value="-18" />
-          <Setter Property="ScaleTransform.ScaleX" Value="0.985" />
-          <Setter Property="ScaleTransform.ScaleY" Value="0.985" />
         </KeyFrame>
-      </Animation>
-    </Style.Animations>
-  </Style>
-  <Style Selector="ScrollViewer.details-page.leaving Image.details-hero-background">
-    <Style.Animations>
-      <Animation Duration="0:0:0.43" FillMode="Both">
-        <Animation.Easing><CubicEaseIn /></Animation.Easing>
-        <KeyFrame Cue="0%">
-          <Setter Property="ScaleTransform.ScaleX" Value="1" />
-          <Setter Property="ScaleTransform.ScaleY" Value="1" />
-        </KeyFrame>
-        <KeyFrame Cue="100%">
-          <Setter Property="ScaleTransform.ScaleX" Value="1.08" />
-          <Setter Property="ScaleTransform.ScaleY" Value="1.08" />
-        </KeyFrame>
-      </Animation>
-    </Style.Animations>
-  </Style>
-  <Style Selector="ScrollViewer.details-page.leaving Border.details-hero-action">
-    <Style.Animations>
-      <Animation Duration="0:0:0.22" FillMode="Both">
-        <Animation.Easing><CubicEaseIn /></Animation.Easing>
-        <KeyFrame Cue="0%">
-          <Setter Property="Opacity" Value="1" />
-          <Setter Property="TranslateTransform.Y" Value="0" />
-          <Setter Property="ScaleTransform.ScaleX" Value="1" />
-          <Setter Property="ScaleTransform.ScaleY" Value="1" />
-        </KeyFrame>
-        <KeyFrame Cue="100%">
-          <Setter Property="Opacity" Value="0" />
-          <Setter Property="TranslateTransform.Y" Value="8" />
-          <Setter Property="ScaleTransform.ScaleX" Value="0.96" />
-          <Setter Property="ScaleTransform.ScaleY" Value="0.96" />
-        </KeyFrame>
-      </Animation>
-    </Style.Animations>
-  </Style>
-  <Style Selector="ScrollViewer.details-page.leaving WrapPanel.details-hero-meta">
-    <Style.Animations>
-      <Animation Duration="0:0:0.22" Delay="0:0:0.03" FillMode="Both">
-        <Animation.Easing><CubicEaseIn /></Animation.Easing>
-        <KeyFrame Cue="0%"><Setter Property="Opacity" Value="1" /><Setter Property="TranslateTransform.Y" Value="0" /></KeyFrame>
-        <KeyFrame Cue="100%"><Setter Property="Opacity" Value="0" /><Setter Property="TranslateTransform.Y" Value="-8" /></KeyFrame>
-      </Animation>
-    </Style.Animations>
-  </Style>
-  <Style Selector="ScrollViewer.details-page.leaving TextBlock.details-hero-original">
-    <Style.Animations>
-      <Animation Duration="0:0:0.22" Delay="0:0:0.06" FillMode="Both">
-        <Animation.Easing><CubicEaseIn /></Animation.Easing>
-        <KeyFrame Cue="0%"><Setter Property="Opacity" Value="1" /><Setter Property="TranslateTransform.Y" Value="0" /></KeyFrame>
-        <KeyFrame Cue="100%"><Setter Property="Opacity" Value="0" /><Setter Property="TranslateTransform.Y" Value="-9" /></KeyFrame>
-      </Animation>
-    </Style.Animations>
-  </Style>
-  <Style Selector="ScrollViewer.details-page.leaving TextBlock.details-hero-title">
-    <Style.Animations>
-      <Animation Duration="0:0:0.24" Delay="0:0:0.09" FillMode="Both">
-        <Animation.Easing><CubicEaseIn /></Animation.Easing>
-        <KeyFrame Cue="0%"><Setter Property="Opacity" Value="1" /><Setter Property="TranslateTransform.Y" Value="0" /></KeyFrame>
-        <KeyFrame Cue="100%"><Setter Property="Opacity" Value="0" /><Setter Property="TranslateTransform.Y" Value="-12" /></KeyFrame>
-      </Animation>
-    </Style.Animations>
-  </Style>
-  <Style Selector="ScrollViewer.details-page.leaving Border.details-hero-poster">
-    <Style.Animations>
-      <Animation Duration="0:0:0.3" Delay="0:0:0.12" FillMode="Both">
-        <Animation.Easing><CubicEaseIn /></Animation.Easing>
-        <KeyFrame Cue="0%">
-          <Setter Property="Opacity" Value="1" />
-          <Setter Property="TranslateTransform.Y" Value="0" />
-          <Setter Property="ScaleTransform.ScaleX" Value="1" />
-          <Setter Property="ScaleTransform.ScaleY" Value="1" />
-        </KeyFrame>
-        <KeyFrame Cue="100%">
-          <Setter Property="Opacity" Value="0" />
-          <Setter Property="TranslateTransform.Y" Value="-24" />
-          <Setter Property="ScaleTransform.ScaleX" Value="0.94" />
-          <Setter Property="ScaleTransform.ScaleY" Value="0.94" />
-        </KeyFrame>
-      </Animation>
-    </Style.Animations>
-  </Style>
-  <Style Selector="ScrollViewer.details-page.leaving StackPanel.details-body">
-    <Style.Animations>
-      <Animation Duration="0:0:0.24" FillMode="Both">
-        <Animation.Easing><CubicEaseIn /></Animation.Easing>
-        <KeyFrame Cue="0%"><Setter Property="Opacity" Value="1" /><Setter Property="TranslateTransform.Y" Value="0" /></KeyFrame>
-        <KeyFrame Cue="100%"><Setter Property="Opacity" Value="0" /><Setter Property="TranslateTransform.Y" Value="18" /></KeyFrame>
       </Animation>
     </Style.Animations>
   </Style>
   <Style Selector="Border.comment-card">
-    <Setter Property="Margin" Value="0,0,0,8" />
-    <Setter Property="Background" Value="{DynamicResource Brush.Surface.Primary}" />
-    <Setter Property="CornerRadius" Value="12" />
     <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="Button.comment-toggle">
+    <Setter Property="Height" Value="30" />
+    <Setter Property="Padding" Value="14,0" />
+    <Setter Property="CornerRadius" Value="15" />
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface.Secondary}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="Button.comment-toggle:pointerover">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface.Tertiary}" />
+  </Style>
+  <Style Selector="Button.comment-toggle:pressed">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface.Tertiary}" />
   </Style>
   <Style Selector="Border.rating-card">
     <Setter Property="Background" Value="{DynamicResource Brush.Surface.Primary}" />

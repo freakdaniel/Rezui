@@ -10,12 +10,27 @@ public sealed class CountryFlagAssetsTests
     [InlineData("Великобритания", "https://example.test/country/UK/", "GB")]
     [InlineData("Япония", "https://example.test/country/JPN/", "JP")]
     [InlineData("ОАЭ", null, "AE")]
+    [InlineData("Корея Южная", null, "KR")]
+    [InlineData("Турция", null, "TR")]
+    [InlineData("Бразилия", null, "BR")]
+    [InlineData("Аргентина", null, "AR")]
     public void ResolveCountryCodeSupportsRezkaLinksAndAliases(
         string name,
         string? url,
         string expected)
     {
         Assert.Equal(expected, CountryFlagAssets.ResolveCountryCode(name, url));
+    }
+
+    [Theory]
+    [InlineData("Корея Южная", "Южная Корея")]
+    [InlineData("Корея Северная", "Северная Корея")]
+    [InlineData("  Бразилия  ", "Бразилия")]
+    public void NormalizeCountryNameUsesNaturalRussianWordOrder(
+        string source,
+        string expected)
+    {
+        Assert.Equal(expected, CountryFlagAssets.NormalizeCountryName(source));
     }
 
     [Fact]

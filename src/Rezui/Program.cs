@@ -1,6 +1,7 @@
 using Avalonia;
 using LibVLCSharp.Shared;
 using Rezui.Services;
+using Serilog;
 
 namespace Rezui;
 
@@ -36,11 +37,37 @@ internal static class Program
             return;
         }
 
-        BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+        AppLogging.Initialize();
+        try
+        {
+            var logger = Log.ForContext(typeof(Program));
+            logger.Information(
+                "Rezui {Version} starting on {OperatingSystem}",
+                AppLogging.AppVersion,
+                Environment.OSVersion.VersionString);
+            BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+            logger.Information("Rezui stopped normally");
+        }
+        catch (Exception exception)
+        {
+            Log.ForContext(typeof(Program))
+                .Fatal(exception, "Rezui terminated during startup or application lifetime");
+            throw;
+        }
+        finally
+        {
+            AppLogging.Shutdown();
+        }
     }
 
     public static AppBuilder BuildAvaloniaApp() =>
         AppBuilder.Configure<App>()
+            .With(new SkiaOptions
+            {
+                MaxGpuResourceSizeBytes = 128L * 1024 * 1024
+            })
             .UsePlatformDetect()
-            .LogToTrace();
+            .LogToDelegate(
+                AppLogging.WriteAvaloniaEvent,
+                Avalonia.Logging.LogEventLevel.Warning);
 }

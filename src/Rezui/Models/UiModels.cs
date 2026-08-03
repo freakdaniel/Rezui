@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -79,15 +80,28 @@ public sealed record DetailFactItem(
     public bool HasPlainValue => !HasCountries && !HasAgeIcon;
 }
 
-public sealed record CountryFlagItem(string Name, Bitmap? ImageSource)
+public sealed record CountryFlagItem(
+    string Name,
+    Bitmap? ImageSource,
+    bool HasTrailingSeparator = false)
 {
     public bool HasImage => ImageSource is not null;
+}
+
+public sealed class DeferredImageSource
+{
+    private readonly Lazy<Task<Bitmap?>> _image;
+
+    public DeferredImageSource(Func<Task<Bitmap?>> load) =>
+        _image = new Lazy<Task<Bitmap?>>(load, LazyThreadSafetyMode.ExecutionAndPublication);
+
+    public Task<Bitmap?> Value => _image.Value;
 }
 
 public sealed record PersonCardItem(
     string Name,
     string Job,
-    Task<Bitmap?> ImageSource);
+    DeferredImageSource ImageSource);
 
 public sealed record ExternalRatingItem(
     string Source,
@@ -152,25 +166,144 @@ public sealed class DetailGroupCardItem
 
 public sealed record DetailGroupColumnItem(IReadOnlyList<string> Items);
 
-public sealed record CommentCardItem(
-    long Id,
-    string Author,
-    string DateLabel,
-    string Text,
-    int Likes,
-    Thickness Indent,
-    Task<Bitmap?> AvatarSource);
+public sealed partial class CommentNodeItem : ObservableObject
+{
+    public const int AlwaysVisibleReplies = 3;
+
+    public CommentNodeItem(
+        long id,
+        long? parentId,
+        int depth,
+        string author,
+        string dateLabel,
+        string text,
+        int likes,
+        DeferredImageSource avatarSource)
+    {
+        Id = id;
+        ParentId = parentId;
+        Depth = depth;
+        Author = author;
+        DateLabel = dateLabel;
+        Text = text;
+        Likes = likes;
+        AvatarSource = avatarSource;
+    }
+
+    public long Id { get; }
+
+    public long? ParentId { get; }
+
+    public int Depth { get; }
+
+    public string Author { get; }
+
+    public string DateLabel { get; }
+
+    public string Text { get; }
+
+    public int Likes { get; }
+
+    public DeferredImageSource AvatarSource { get; }
+
+    public ObservableCollection<CommentNodeItem> Children { get; } = [];
+
+    public bool HasReplies => Children.Count > 0;
+
+    /// <summary>
+    /// Whether more replies exist than the <see cref="AlwaysVisibleReplies"/>
+    /// always-shown preview. When <c>true</c>, the reply list shows the first
+    /// <see cref="AlwaysVisibleReplies"/> children always and the rest behind a
+    /// "show more replies" button; when <c>false</c> the whole thread toggles.
+    /// </summary>
+    public bool HasOverflow => Children.Count > AlwaysVisibleReplies;
+
+    /// <summary>
+    /// Whether the whole-branch toggle button (for short threads with ≤3
+    /// replies) should be rendered. Separate from <see cref="HasOverflow"/>
+    /// to avoid showing a toggle on comments without any replies.
+    /// </summary>
+    public bool CanToggleBranch => HasReplies && !HasOverflow;
+
+    /// <summary>
+    /// Replies rendered directly under this comment. For short threads (≤3
+    /// replies) this is the full set, hidden when collapsed. For long threads
+    /// (>3) the first three are always shown and the remainder lives in
+    /// <see cref="OverflowReplies"/>.
+    /// </summary>
+    public IReadOnlyList<CommentNodeItem> RenderedReplies =>
+        HasOverflow
+            ? Children.Take(AlwaysVisibleReplies).ToList()
+            : (IsExpanded ? Children : Array.Empty<CommentNodeItem>());
+
+    /// <summary>
+    /// Replies beyond the always-shown preview of a long thread. Empty unless
+    /// <see cref="HasOverflow"/> and the thread is expanded.
+    /// </summary>
+    public IReadOnlyList<CommentNodeItem> OverflowReplies =>
+        HasOverflow && IsExpanded
+            ? Children.Skip(AlwaysVisibleReplies).ToList()
+            : Array.Empty<CommentNodeItem>();
+
+    /// <summary>
+    /// Label for the button that collapses the whole reply thread. Only used
+    /// for short threads (≤3 replies); long threads are collapsed piecewise.
+    /// </summary>
+    public string CollapseLabel =>
+        IsExpanded ? "Свернуть ответы" : $"Показать ответы ({Children.Count})";
+
+    /// <summary>
+    /// Label for the "show more replies" button on long threads (>3 replies).
+    /// </summary>
+    public string OverflowLabel =>
+        IsExpanded
+            ? "Свернуть"
+            : $"Другие ответы ({Children.Count - AlwaysVisibleReplies})";
+
+    public string CollapseIcon => IsExpanded ? "expand_less" : "expand_more";
+
+    [ObservableProperty]
+    private bool _isExpanded = true;
+
+    [RelayCommand]
+    private void ToggleExpanded()
+    {
+        IsExpanded = !IsExpanded;
+    }
+
+    partial void OnIsExpandedChanged(bool value)
+    {
+        OnPropertyChanged(nameof(RenderedReplies));
+        OnPropertyChanged(nameof(OverflowReplies));
+        OnPropertyChanged(nameof(CollapseLabel));
+        OnPropertyChanged(nameof(OverflowLabel));
+        OnPropertyChanged(nameof(CollapseIcon));
+    }
+
+    internal void NotifyChildrenChanged()
+    {
+        OnPropertyChanged(nameof(HasReplies));
+        OnPropertyChanged(nameof(HasOverflow));
+        OnPropertyChanged(nameof(CanToggleBranch));
+        OnPropertyChanged(nameof(RenderedReplies));
+        OnPropertyChanged(nameof(OverflowReplies));
+        OnPropertyChanged(nameof(CollapseLabel));
+        OnPropertyChanged(nameof(OverflowLabel));
+    }
+}
 
 public sealed class ContinueWatchingHeroItem
 {
     public ContinueWatchingHeroItem(
         MediaCardItem media,
+        DeferredImageSource backgroundImageSource,
         string playbackPosition,
         string lastViewedLabel,
         string details)
     {
         Title = media.Title;
         ImageSource = media.ImageSource;
+        BackgroundImageSource = backgroundImageSource;
         Category = media.Category;
         PlaybackPosition = playbackPosition;
         LastViewedLabel = lastViewedLabel;
@@ -180,7 +313,9 @@ public sealed class ContinueWatchingHeroItem
 
     public string Title { get; }
 
-    public Task<Bitmap?> ImageSource { get; }
+    public DeferredImageSource ImageSource { get; }
+
+    public DeferredImageSource BackgroundImageSource { get; }
 
     public string Category { get; }
 
@@ -211,7 +346,7 @@ public sealed class MediaCardItem
     public MediaCardItem(
         string title,
         Uri url,
-        Task<Bitmap?> imageSource,
+        DeferredImageSource imageSource,
         string category,
         Func<Task> open)
     {
@@ -226,7 +361,7 @@ public sealed class MediaCardItem
 
     public Uri Url { get; }
 
-    public Task<Bitmap?> ImageSource { get; }
+    public DeferredImageSource ImageSource { get; }
 
     public string Category { get; }
 

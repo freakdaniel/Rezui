@@ -4,6 +4,7 @@ using Avalonia.Markup.Xaml;
 using Rezui.Services;
 using Rezui.ViewModels;
 using Rezui.Views;
+using Serilog;
 
 namespace Rezui;
 
@@ -22,14 +23,22 @@ public sealed partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            var logger = Log.ForContext<App>();
+            logger.Information("Initializing desktop application services");
             _cache = new LocalCacheStore();
             var settings = new SettingsService(cache: _cache);
             var themes = new ThemeService();
-            _rezka = new RezkaClientService(settings, _cache);
+            _rezka = new RezkaClientService(
+                settings,
+                _cache,
+                Log.ForContext<RezkaClientService>());
             _images = new ImageCacheService(_cache);
             _player = new PlayerViewModel();
-            _librarySync = new LibrarySyncWorker(_rezka);
-            _mirrorDiscovery = new MirrorDiscoveryService();
+            _librarySync = new LibrarySyncWorker(
+                _rezka,
+                Log.ForContext<LibrarySyncWorker>());
+            _mirrorDiscovery = new MirrorDiscoveryService(
+                logger: Log.ForContext<MirrorDiscoveryService>());
             var viewModel = new MainWindowViewModel(
                 settings,
                 _rezka,
@@ -37,7 +46,8 @@ public sealed partial class App : Application
                 _player,
                 themes,
                 _librarySync,
-                _mirrorDiscovery);
+                _mirrorDiscovery,
+                Log.ForContext<MainWindowViewModel>());
 
             desktop.MainWindow = new MainWindow
             {
@@ -45,6 +55,7 @@ public sealed partial class App : Application
             };
             desktop.Exit += (_, _) =>
             {
+                logger.Information("Disposing desktop application services");
                 viewModel.Dispose();
                 _librarySync.Dispose();
                 _player.Dispose();
@@ -52,6 +63,7 @@ public sealed partial class App : Application
                 _mirrorDiscovery.Dispose();
                 _rezka.Dispose();
                 _cache.Dispose();
+                logger.Information("Desktop application services disposed");
             };
         }
 

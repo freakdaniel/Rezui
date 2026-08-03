@@ -21,12 +21,24 @@ internal static class CountryFlagAssets
             ["Япония"] = "JP",
             ["Китай"] = "CN",
             ["Южная Корея"] = "KR",
+            ["Корея Южная"] = "KR",
             ["Северная Корея"] = "KP",
+            ["Корея Северная"] = "KP",
+            ["Турция"] = "TR",
+            ["Бразилия"] = "BR",
+            ["Аргентина"] = "AR",
             ["ОАЭ"] = "AE",
             ["Гонконг"] = "HK",
             ["Тайвань"] = "TW",
             ["Чехия"] = "CZ",
             ["Вьетнам"] = "VN"
+        };
+
+    private static readonly IReadOnlyDictionary<string, string> DisplayNames =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Корея Южная"] = "Южная Корея",
+            ["Корея Северная"] = "Северная Корея"
         };
 
     private static readonly IReadOnlyDictionary<string, string> Alpha3ToAlpha2 =
@@ -35,7 +47,9 @@ internal static class CountryFlagAssets
     private static readonly ConcurrentDictionary<string, Lazy<Bitmap?>> Flags =
         new(StringComparer.OrdinalIgnoreCase);
 
-    public static CountryFlagItem Create(CachedNamedLink country)
+    public static CountryFlagItem Create(
+        CachedNamedLink country,
+        bool hasTrailingSeparator = false)
     {
         var countryCode = ResolveCountryCode(country.Name, country.Url);
         var image = countryCode is null
@@ -47,7 +61,18 @@ internal static class CountryFlagAssets
                         LazyThreadSafetyMode.ExecutionAndPublication))
                 .Value;
 
-        return new CountryFlagItem(country.Name, image);
+        return new CountryFlagItem(
+            NormalizeCountryName(country.Name),
+            image,
+            hasTrailingSeparator);
+    }
+
+    internal static string NormalizeCountryName(string name)
+    {
+        var trimmed = name.Trim();
+        return DisplayNames.TryGetValue(trimmed, out var displayName)
+            ? displayName
+            : trimmed;
     }
 
     internal static string? ResolveCountryCode(string name, string? url)
