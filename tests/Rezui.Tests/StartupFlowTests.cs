@@ -147,7 +147,7 @@ public sealed class StartupFlowTests
         Assert.False(viewModel.IsStartupLoading);
         Assert.True(viewModel.IsStartupAuthenticationRequired);
         Assert.Equal(RezkaMirrors.Primary, viewModel.Origin);
-        Assert.Equal(3, viewModel.MirrorStatuses.Count);
+        Assert.Equal(RezkaMirrors.Defaults.Count, viewModel.MirrorStatuses.Count);
         Assert.True(viewModel.CanLogin);
         Assert.Equal("Зеркало: автовыбор", viewModel.MirrorSelectorLabel);
     }
