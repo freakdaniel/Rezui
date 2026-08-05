@@ -31,6 +31,19 @@ public sealed class HomeMediaCardItemTests
     }
 
     [Fact]
+    public void LongHomeTitlesUseACompactFontWithoutShrinkingShortTitles()
+    {
+        var shortTitle = CreateCard(title: "Короткое название");
+        var mediumTitle = CreateCard(title: new string('С', 36));
+        var longTitle = CreateCard(title: new string('Д', 52));
+
+        Assert.Equal(15, shortTitle.HomeTitleFontSize);
+        Assert.Equal(13.5, mediumTitle.HomeTitleFontSize);
+        Assert.Equal(12.5, longTitle.HomeTitleFontSize);
+        Assert.True(longTitle.HomeTitleLineHeight < shortTitle.HomeTitleLineHeight);
+    }
+
+    [Fact]
     public async Task HoverMetadataLoadsOnlyOnce()
     {
         var loadCount = 0;
@@ -45,6 +58,18 @@ public sealed class HomeMediaCardItemTests
         await card.LoadMetadataCommand.ExecuteAsync(null);
 
         Assert.Equal(1, loadCount);
+    }
+
+    [Fact]
+    public async Task SavedStateUsesBookmarkIcons()
+    {
+        var card = CreateCard();
+
+        Assert.Equal("bookmark_border", card.SavedIcon);
+        Assert.Equal("В закладки", card.SavedLabel);
+        await card.ToggleSavedCommand.ExecuteAsync(null);
+        Assert.Equal("bookmark", card.SavedIcon);
+        Assert.Equal("В закладках", card.SavedLabel);
     }
 
     [Fact]
@@ -96,10 +121,11 @@ public sealed class HomeMediaCardItemTests
 
     private static HomeMediaCardItem CreateCard(
         int position = 0,
+        string title = "Тестовый тайтл",
         Func<HomeMediaCardItem, Task>? loadMetadata = null)
     {
         var media = new MediaCardItem(
-            "Тестовый тайтл",
+            title,
             new Uri("https://example.com/media/test.html"),
             new DeferredImageSource(() => Task.FromResult<Avalonia.Media.Imaging.Bitmap?>(null)),
             "Сериал",

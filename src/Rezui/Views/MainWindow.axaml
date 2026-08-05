@@ -25,6 +25,26 @@
   </Window.KeyBindings>
 
   <Window.Resources>
+    <ControlTheme x:Key="HomeCardActionButtonTheme" TargetType="Button">
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border
+              Background="{TemplateBinding Background}"
+              BorderBrush="{TemplateBinding BorderBrush}"
+              BorderThickness="{TemplateBinding BorderThickness}"
+              ClipToBounds="{TemplateBinding ClipToBounds}"
+              CornerRadius="{TemplateBinding CornerRadius}">
+            <ContentPresenter
+                Padding="{TemplateBinding Padding}"
+                HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                Content="{TemplateBinding Content}"
+                ContentTemplate="{TemplateBinding ContentTemplate}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </ControlTheme>
+
     <DataTemplate x:Key="MediaCardTemplate" x:DataType="models:MediaCardItem">
       <Button
           Width="174"
@@ -137,39 +157,7 @@
       <Grid
           Height="{Binding MasonryHeight}"
           Classes="home-media-card"
-          PointerEntered="HomeCard_OnPointerEntered"
-          PointerMoved="HomeCard_OnPointerMoved"
-          PointerExited="HomeCard_OnPointerExited"
-          RenderTransformOrigin="50%,50%">
-        <Grid.RenderTransform>
-          <TransformGroup>
-            <ScaleTransform ScaleX="1" ScaleY="1">
-              <ScaleTransform.Transitions>
-                <Transitions>
-                  <DoubleTransition Property="ScaleX" Duration="0:0:0.09" />
-                  <DoubleTransition Property="ScaleY" Duration="0:0:0.09" />
-                </Transitions>
-              </ScaleTransform.Transitions>
-            </ScaleTransform>
-            <Rotate3DTransform AngleX="0" AngleY="0" AngleZ="0" Depth="850">
-              <Rotate3DTransform.Transitions>
-                <Transitions>
-                  <DoubleTransition Property="AngleX" Duration="0:0:0.09" />
-                  <DoubleTransition Property="AngleY" Duration="0:0:0.09" />
-                  <DoubleTransition Property="AngleZ" Duration="0:0:0.12" />
-                </Transitions>
-              </Rotate3DTransform.Transitions>
-            </Rotate3DTransform>
-            <TranslateTransform>
-              <TranslateTransform.Transitions>
-                <Transitions>
-                  <DoubleTransition Property="X" Duration="0:0:0.09" />
-                  <DoubleTransition Property="Y" Duration="0:0:0.09" />
-                </Transitions>
-              </TranslateTransform.Transitions>
-            </TranslateTransform>
-          </TransformGroup>
-        </Grid.RenderTransform>
+          PointerEntered="HomeCard_OnPointerEntered">
 
         <Border
             Background="{DynamicResource Brush.Surface.Secondary}"
@@ -187,17 +175,7 @@
                 Source="{Binding ImageSource.Value^}"
                 Stretch="UniformToFill">
               <Image.RenderTransform>
-                <TransformGroup>
-                  <ScaleTransform ScaleX="1.045" ScaleY="1.045" />
-                  <TranslateTransform>
-                    <TranslateTransform.Transitions>
-                      <Transitions>
-                        <DoubleTransition Property="X" Duration="0:0:0.11" />
-                        <DoubleTransition Property="Y" Duration="0:0:0.11" />
-                      </Transitions>
-                    </TranslateTransform.Transitions>
-                  </TranslateTransform>
-                </TransformGroup>
+                <ScaleTransform ScaleX="1.045" ScaleY="1.045" />
               </Image.RenderTransform>
             </Image>
             <Border Classes="home-card-inner-light" IsHitTestVisible="False" />
@@ -213,106 +191,112 @@
                 VerticalContentAlignment="Stretch"
                 AutomationProperties.Name="{Binding Title}" />
 
+            <Border Classes="home-card-shadow-base" IsHitTestVisible="False" />
             <Border
                 VerticalAlignment="Bottom"
-                Classes="home-card-caption"
-                IsHitTestVisible="False">
-              <StackPanel Margin="16,62,16,15" Spacing="5">
-                <TextBlock
-                    Foreground="#D6FFFFFF"
-                    FontSize="10"
-                    FontWeight="Bold"
-                    LetterSpacing="0.7"
-                    Text="{Binding Category}" />
-                <TextBlock
-                    MaxHeight="44"
-                    Foreground="White"
-                    FontSize="15"
-                    FontWeight="SemiBold"
-                    LineHeight="19"
-                    Text="{Binding Title}"
-                    TextTrimming="CharacterEllipsis"
-                    TextWrapping="Wrap" />
-              </StackPanel>
-            </Border>
+                Classes="home-card-shadow-motion"
+                IsHitTestVisible="False" />
 
-            <Border
+            <StackPanel
+                Margin="15,0,15,15"
                 VerticalAlignment="Bottom"
-                Background="#C818181D"
-                BorderThickness="0"
-                Classes="home-card-overlay"
-                CornerRadius="0">
-              <StackPanel Margin="14,13,14,14" Spacing="10">
-                <Grid ColumnDefinitions="*,Auto">
-                  <StackPanel Orientation="Horizontal" Spacing="6">
+                Classes="home-card-info"
+                Spacing="4">
+              <TextBlock
+                  MaxHeight="44"
+                  Classes="home-card-title"
+                  Foreground="White"
+                  FontSize="{Binding HomeTitleFontSize}"
+                  FontWeight="SemiBold"
+                  IsHitTestVisible="False"
+                  LineHeight="{Binding HomeTitleLineHeight}"
+                  Text="{Binding Title}"
+                  TextTrimming="CharacterEllipsis"
+                  TextWrapping="Wrap" />
+
+              <controls:ProportionalReveal Classes="home-card-details" ClipToBounds="True">
+                <StackPanel Margin="0,7,0,0" Spacing="8">
+                  <StackPanel IsHitTestVisible="False" Orientation="Horizontal" Spacing="6">
                     <TextBlock Classes="symbol filled home-rating-star" Text="star" IsVisible="{Binding HasRating}" />
                     <TextBlock
+                        Classes="home-card-rating-value"
                         VerticalAlignment="Center"
+                        FontFamily="{Binding MetadataFontFamily}"
                         Foreground="White"
                         FontSize="12"
-                        FontWeight="Bold"
+                        FontWeight="SemiBold"
                         IsVisible="{Binding HasRating}"
                         Text="{Binding RatingLabel}" />
-                    <TextBlock
-                        VerticalAlignment="Center"
-                        Foreground="#AFFFFFFF"
-                        FontSize="11"
-                        IsVisible="{Binding HasYear}"
-                        Text="{Binding YearLabel}" />
                   </StackPanel>
-                  <Border
-                      Grid.Column="1"
-                      Padding="7,3"
-                      Background="#20FFFFFF"
-                      CornerRadius="6"
-                      IsVisible="{Binding HasQuality}">
-                    <TextBlock Foreground="White" FontSize="9" FontWeight="Bold" Text="{Binding QualityLabel}" />
-                  </Border>
-                </Grid>
 
-                <StackPanel IsVisible="{Binding HasProgress}" Spacing="5">
-                  <TextBlock
-                      Foreground="#D8FFFFFF"
-                      FontSize="10"
-                      FontWeight="SemiBold"
-                      Text="{Binding ProgressLabel}"
-                      TextTrimming="CharacterEllipsis" />
-                  <Grid Height="2" ColumnDefinitions="2*,3*">
-                    <Border Background="{Binding AccentBrush}" CornerRadius="1" />
-                    <Border Grid.Column="1" Background="#28FFFFFF" CornerRadius="1" />
+                  <StackPanel IsHitTestVisible="False" IsVisible="{Binding HasProgress}" Spacing="5">
+                    <TextBlock
+                        Foreground="#D8FFFFFF"
+                        FontSize="10"
+                        FontWeight="SemiBold"
+                        Text="{Binding ProgressLabel}"
+                        TextTrimming="CharacterEllipsis" />
+                    <Grid Height="2" ColumnDefinitions="2*,3*">
+                      <Border Background="{Binding AccentBrush}" CornerRadius="1" />
+                      <Border Grid.Column="1" Background="#28FFFFFF" CornerRadius="1" />
+                    </Grid>
+                  </StackPanel>
+
+                  <WrapPanel IsHitTestVisible="False">
+                    <TextBlock Classes="home-card-fact" IsVisible="{Binding HasDuration}" Text="{Binding DurationLabel}" />
+                    <TextBlock Classes="home-card-fact" IsVisible="{Binding HasEpisodeCount}" Text="{Binding EpisodeCountLabel}" />
+                    <TextBlock Classes="home-card-fact" IsVisible="{Binding HasAgeRating}" Text="{Binding AgeRatingLabel}" />
+                  </WrapPanel>
+                  <Grid
+                      Height="34"
+                      Classes="home-card-actions"
+                      ColumnDefinitions="Auto,Auto,*"
+                      ColumnSpacing="8">
+                    <Button
+                        Height="34"
+                        Padding="0"
+                        Classes="home-card-bookmark"
+                        Classes.saved="{Binding IsSaved}"
+                        Command="{Binding ToggleSavedCommand}"
+                        Theme="{StaticResource HomeCardActionButtonTheme}"
+                        AutomationProperties.Name="{Binding SavedLabel}">
+                      <Grid Width="22" Height="22">
+                        <TextBlock
+                            Classes="symbol home-card-action-icon home-card-bookmark-outline"
+                            Text="bookmark_border" />
+                        <TextBlock
+                            Classes="symbol filled home-card-action-icon home-card-bookmark-filled"
+                            Text="bookmark" />
+                      </Grid>
+                    </Button>
+                    <Button
+                        Grid.Column="1"
+                        Height="34"
+                        Padding="0"
+                        Classes="home-card-navigate"
+                        Command="{Binding OpenCommand}"
+                        Theme="{StaticResource HomeCardActionButtonTheme}"
+                        AutomationProperties.Name="Открыть страницу тайтла">
+                      <Grid Margin="6,0">
+                        <TextBlock
+                            Margin="6,0,29,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center"
+                            Classes="home-card-action-label home-card-navigate-label"
+                            FontSize="11"
+                            FontWeight="SemiBold"
+                            Text="Перейти"
+                            TextWrapping="NoWrap" />
+                        <TextBlock
+                            HorizontalAlignment="Right"
+                            Classes="symbol home-card-action-icon"
+                            Text="arrow_forward" />
+                      </Grid>
+                    </Button>
                   </Grid>
                 </StackPanel>
-
-                <WrapPanel>
-                  <TextBlock Classes="home-card-fact" IsVisible="{Binding HasDuration}" Text="{Binding DurationLabel}" />
-                  <TextBlock Classes="home-card-fact" IsVisible="{Binding HasEpisodeCount}" Text="{Binding EpisodeCountLabel}" />
-                  <TextBlock Classes="home-card-fact" IsVisible="{Binding HasAgeRating}" Text="{Binding AgeRatingLabel}" />
-                  <TextBlock Classes="home-card-fact" IsVisible="{Binding !HasDuration}" Text="{Binding Category}" />
-                </WrapPanel>
-
-                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
-                  <Button
-                      Width="38"
-                      Height="38"
-                      Padding="0"
-                      Classes="home-card-play"
-                      Command="{Binding OpenCommand}">
-                    <TextBlock Classes="symbol filled" FontSize="23" Text="play_arrow" />
-                  </Button>
-                  <Button
-                      Grid.Column="1"
-                      Height="38"
-                      Padding="11,0"
-                      Classes="home-card-add"
-                      Command="{Binding ToggleSavedCommand}">
-                    <StackPanel Orientation="Horizontal" Spacing="5">
-                      <TextBlock Classes="symbol" FontSize="18" Text="{Binding SavedIcon}" />
-                      <TextBlock VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold" Text="{Binding SavedLabel}" />
-                    </StackPanel>
-                  </Button>
-                </Grid>
-              </StackPanel>
-            </Border>
+              </controls:ProportionalReveal>
+            </StackPanel>
           </Grid>
         </Border>
       </Grid>

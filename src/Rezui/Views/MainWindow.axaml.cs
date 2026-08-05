@@ -5,7 +5,6 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Rendering;
 using Avalonia.VisualTree;
-using Rezui.Controls;
 using Rezui.Models;
 using Rezui.Services;
 using Rezui.ViewModels;
@@ -21,7 +20,6 @@ public sealed partial class MainWindow : Window
         RendererDebugOverlays.RenderTimeGraph;
 
     private readonly Dictionary<ScrollViewer, SmoothScrollState> _smoothScrollStates = [];
-    private readonly Dictionary<Grid, HomeCardTransforms> _homeCardTransforms = [];
     private readonly Cursor _autoScrollCursor = new(StandardCursorType.SizeNorthSouth);
     private AutoScrollState? _autoScrollState;
     private Cursor? _cursorBeforeAutoScroll;
@@ -50,131 +48,6 @@ public sealed partial class MainWindow : Window
         {
             card.LoadMetadataCommand.Execute(null);
         }
-
-        if (sender is Grid cardRoot)
-        {
-            SetMasonryContainerZIndex(cardRoot, 50);
-            UpdateHomeCardTilt(cardRoot, eventArgs.GetPosition(cardRoot));
-        }
-    }
-
-    private void HomeCard_OnPointerMoved(object? sender, PointerEventArgs eventArgs)
-    {
-        if (sender is Grid cardRoot)
-        {
-            UpdateHomeCardTilt(cardRoot, eventArgs.GetPosition(cardRoot));
-        }
-    }
-
-    private void HomeCard_OnPointerExited(object? sender, PointerEventArgs eventArgs)
-    {
-        if (sender is not Grid cardRoot ||
-            !TryGetHomeCardTransforms(
-                cardRoot,
-                out var scale,
-                out var tilt,
-                out var lift,
-                out var posterShift))
-        {
-            return;
-        }
-
-        SetMasonryContainerZIndex(cardRoot, 0);
-        scale.ScaleX = 1;
-        scale.ScaleY = 1;
-        tilt.AngleX = 0;
-        tilt.AngleY = 0;
-        tilt.AngleZ = 0;
-        lift.X = 0;
-        lift.Y = 0;
-        posterShift.X = 0;
-        posterShift.Y = 0;
-    }
-
-    private static void SetMasonryContainerZIndex(Grid cardRoot, int zIndex)
-    {
-        var container = cardRoot
-            .GetVisualAncestors()
-            .OfType<Control>()
-            .FirstOrDefault(control => control.Parent is ReactBitsMasonryPanel);
-        if (container is not null)
-        {
-            container.ZIndex = zIndex;
-        }
-    }
-
-    private void UpdateHomeCardTilt(Grid cardRoot, Point pointerPosition)
-    {
-        if (cardRoot.Bounds.Width <= 0 ||
-            cardRoot.Bounds.Height <= 0 ||
-            !TryGetHomeCardTransforms(
-                cardRoot,
-                out var scale,
-                out var tilt,
-                out var lift,
-                out var posterShift))
-        {
-            return;
-        }
-
-        var motion = HomeCardMotion.Calculate(pointerPosition, cardRoot.Bounds.Size);
-        scale.ScaleX = motion.Scale;
-        scale.ScaleY = motion.Scale;
-        tilt.AngleX = motion.AngleX;
-        tilt.AngleY = motion.AngleY;
-        tilt.AngleZ = motion.AngleZ;
-        lift.X = motion.LiftX;
-        lift.Y = motion.LiftY;
-        posterShift.X = motion.PosterX;
-        posterShift.Y = motion.PosterY;
-    }
-
-    private bool TryGetHomeCardTransforms(
-        Grid cardRoot,
-        out ScaleTransform scale,
-        out Rotate3DTransform tilt,
-        out TranslateTransform lift,
-        out TranslateTransform posterShift)
-    {
-        if (_homeCardTransforms.TryGetValue(cardRoot, out var cached))
-        {
-            scale = cached.Scale;
-            tilt = cached.Tilt;
-            lift = cached.Lift;
-            posterShift = cached.PosterShift;
-            return true;
-        }
-
-        scale = null!;
-        tilt = null!;
-        lift = null!;
-        posterShift = null!;
-        if (cardRoot.RenderTransform is not TransformGroup cardTransforms)
-        {
-            return false;
-        }
-
-        scale = cardTransforms.Children.OfType<ScaleTransform>().FirstOrDefault()!;
-        tilt = cardTransforms.Children.OfType<Rotate3DTransform>().FirstOrDefault()!;
-        lift = cardTransforms.Children.OfType<TranslateTransform>().FirstOrDefault()!;
-        var poster = cardRoot.GetVisualDescendants()
-            .OfType<Image>()
-            .FirstOrDefault(image => image.Classes.Contains("home-card-poster"));
-        posterShift = (poster?.RenderTransform as TransformGroup)?
-            .Children
-            .OfType<TranslateTransform>()
-            .FirstOrDefault()!;
-        if (scale is null || tilt is null || lift is null || posterShift is null)
-        {
-            return false;
-        }
-
-        _homeCardTransforms[cardRoot] = new HomeCardTransforms(
-            scale,
-            tilt,
-            lift,
-            posterShift);
-        return true;
     }
 
     private void OnPreviewPointerWheelChanged(
@@ -432,7 +305,6 @@ public sealed partial class MainWindow : Window
         }
 
         _smoothScrollStates.Clear();
-        _homeCardTransforms.Clear();
         _autoScrollCursor.Dispose();
     }
 
@@ -676,9 +548,4 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private sealed record HomeCardTransforms(
-        ScaleTransform Scale,
-        Rotate3DTransform Tilt,
-        TranslateTransform Lift,
-        TranslateTransform PosterShift);
 }

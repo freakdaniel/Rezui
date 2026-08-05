@@ -1,5 +1,6 @@
 <Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:Rezui.Controls">
   <Style Selector="Window">
     <Setter Property="Background" Value="{DynamicResource Brush.App.Background}" />
     <Setter Property="FontFamily" Value="{StaticResource Font.Body}" />
@@ -1012,19 +1013,16 @@
     <Setter Property="VerticalContentAlignment" Value="Stretch" />
   </Style>
 
-  <!-- Home history cards keep stable outer bounds. Pointer-driven Rotate3D and
-       image parallax are updated in code without reflowing the scroll content. -->
+  <!-- Home history cards keep stable outer bounds. Hover only reveals the
+       lower cinematic shadow and metadata; the poster itself never tilts. -->
   <Style Selector="Grid.home-media-card">
     <Setter Property="ZIndex" Value="1" />
-  </Style>
-  <Style Selector="Grid.home-media-card:pointerover">
-    <Setter Property="ZIndex" Value="40" />
   </Style>
   <Style Selector="Border.home-card-frame">
     <Setter Property="RenderTransformOrigin" Value="50%,50%" />
   </Style>
   <Style Selector="Grid.home-media-card:pointerover Border.home-card-frame">
-    <Setter Property="BoxShadow" Value="0 28 70 0 #A0000000" />
+    <Setter Property="BoxShadow" Value="0 20 44 0 #68000000" />
   </Style>
   <Style Selector="Border.home-card-skeleton">
     <Setter Property="Background">
@@ -1060,47 +1058,68 @@
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="CornerRadius" Value="0" />
   </Style>
-  <Style Selector="Border.home-card-caption">
-    <Setter Property="Opacity" Value="1" />
-    <Setter Property="RenderTransform" Value="translateY(0px)" />
+  <Style Selector="Border.home-card-shadow-base">
+    <Setter Property="IsHitTestVisible" Value="False" />
     <Setter Property="Background">
       <LinearGradientBrush StartPoint="50%,0%" EndPoint="50%,100%">
         <GradientStop Color="#00000000" Offset="0" />
-        <GradientStop Color="#BC08080A" Offset="0.65" />
-        <GradientStop Color="#F208080A" Offset="1" />
+        <GradientStop Color="#08000000" Offset="0.42" />
+        <GradientStop Color="#A608080B" Offset="0.76" />
+        <GradientStop Color="#F208080B" Offset="1" />
+      </LinearGradientBrush>
+    </Setter>
+  </Style>
+  <Style Selector="Border.home-card-shadow-motion">
+    <Setter Property="Height" Value="242" />
+    <Setter Property="Opacity" Value="0.08" />
+    <Setter Property="RenderTransform" Value="translateY(58px)" />
+    <Setter Property="Background">
+      <LinearGradientBrush StartPoint="50%,0%" EndPoint="50%,100%">
+        <GradientStop Color="#00000000" Offset="0" />
+        <GradientStop Color="#85040508" Offset="0.5" />
+        <GradientStop Color="#F7050507" Offset="1" />
       </LinearGradientBrush>
     </Setter>
     <Setter Property="Transitions">
       <Transitions>
-        <DoubleTransition Property="Opacity" Duration="0:0:0.22" />
-        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.28" />
-      </Transitions>
-    </Setter>
-  </Style>
-  <Style Selector="Grid.home-media-card:pointerover Border.home-card-caption">
-    <Setter Property="Opacity" Value="0" />
-    <Setter Property="RenderTransform" Value="translateY(-10px)" />
-  </Style>
-  <Style Selector="Border.home-card-overlay">
-    <Setter Property="Opacity" Value="0" />
-    <Setter Property="IsHitTestVisible" Value="False" />
-    <Setter Property="RenderTransform" Value="translateY(30px)" />
-    <Setter Property="Transitions">
-      <Transitions>
-        <DoubleTransition Property="Opacity" Duration="0:0:0.26" />
-        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.34">
-          <TransformOperationsTransition.Easing><CubicEaseOut /></TransformOperationsTransition.Easing>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.6">
+          <DoubleTransition.Easing><SplineEasing X1="0.2" Y1="0" X2="0.16" Y2="1" /></DoubleTransition.Easing>
+        </DoubleTransition>
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.78">
+          <TransformOperationsTransition.Easing><SplineEasing X1="0.2" Y1="0" X2="0.16" Y2="1" /></TransformOperationsTransition.Easing>
         </TransformOperationsTransition>
       </Transitions>
     </Setter>
   </Style>
-  <Style Selector="Grid.home-media-card:pointerover Border.home-card-overlay">
+  <Style Selector="Grid.home-media-card:pointerover Border.home-card-shadow-motion">
+    <Setter Property="Opacity" Value="0.94" />
+    <Setter Property="RenderTransform" Value="translateY(0px)" />
+  </Style>
+  <Style Selector="controls|ProportionalReveal.home-card-details">
+    <Setter Property="RevealProgress" Value="0" />
+    <Setter Property="Opacity" Value="0" />
+    <Setter Property="RenderTransform" Value="translateY(18px)" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="RevealProgress" Duration="0:0:0.72">
+          <DoubleTransition.Easing><SplineEasing X1="0.2" Y1="0" X2="0.16" Y2="1" /></DoubleTransition.Easing>
+        </DoubleTransition>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.46">
+          <DoubleTransition.Easing><SplineEasing X1="0.2" Y1="0" X2="0.16" Y2="1" /></DoubleTransition.Easing>
+        </DoubleTransition>
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.68">
+          <TransformOperationsTransition.Easing><SplineEasing X1="0.2" Y1="0" X2="0.16" Y2="1" /></TransformOperationsTransition.Easing>
+        </TransformOperationsTransition>
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Grid.home-media-card:pointerover controls|ProportionalReveal.home-card-details">
+    <Setter Property="RevealProgress" Value="1" />
     <Setter Property="Opacity" Value="1" />
-    <Setter Property="IsHitTestVisible" Value="True" />
     <Setter Property="RenderTransform" Value="translateY(0px)" />
   </Style>
   <Style Selector="TextBlock.home-rating-star">
-    <Setter Property="Foreground" Value="#FFD568" />
+    <Setter Property="Foreground" Value="White" />
     <Setter Property="FontSize" Value="15" />
   </Style>
   <Style Selector="TextBlock.home-card-fact">
@@ -1108,27 +1127,103 @@
     <Setter Property="Foreground" Value="#BFFFFFFF" />
     <Setter Property="FontSize" Value="10" />
   </Style>
-  <Style Selector="Button.home-card-play">
+  <Style Selector="Button.home-card-navigate, Button.home-card-bookmark">
+    <Setter Property="Width" Value="34" />
     <Setter Property="Padding" Value="0" />
+    <Setter Property="ClipToBounds" Value="True" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="CornerRadius" Value="17" />
+  </Style>
+  <Style Selector="Button.home-card-navigate">
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
     <Setter Property="Background" Value="White" />
+    <Setter Property="BorderBrush" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
-    <Setter Property="CornerRadius" Value="19" />
     <Setter Property="Foreground" Value="#111114" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Width" Duration="0:0:0.42">
+          <DoubleTransition.Easing><SplineEasing X1="0.2" Y1="0" X2="0.16" Y2="1" /></DoubleTransition.Easing>
+        </DoubleTransition>
+      </Transitions>
+    </Setter>
   </Style>
-  <Style Selector="Button.home-card-play:pointerover">
+  <Style Selector="Button.home-card-navigate:pointerover, Button.home-card-navigate:pressed">
+    <Setter Property="Width" Value="96" />
     <Setter Property="Background" Value="#E8E8ED" />
-    <Setter Property="RenderTransform" Value="scale(1.06)" />
+    <Setter Property="BorderBrush" Value="Transparent" />
   </Style>
-  <Style Selector="Button.home-card-add">
-    <Setter Property="Background" Value="#1FFFFFFF" />
-    <Setter Property="BorderBrush" Value="#24FFFFFF" />
-    <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="19" />
+  <Style Selector="Button.home-card-bookmark">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="White" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+  </Style>
+  <Style Selector="Button.home-card-bookmark:pointerover, Button.home-card-bookmark:pressed">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
     <Setter Property="Foreground" Value="White" />
   </Style>
-  <Style Selector="Button.home-card-add:pointerover">
-    <Setter Property="Background" Value="#32FFFFFF" />
-    <Setter Property="BorderBrush" Value="#48FFFFFF" />
+  <Style Selector="TextBlock.home-card-action-icon">
+    <Setter Property="Width" Value="22" />
+    <Setter Property="Height" Value="22" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="FontSize" Value="19" />
+    <Setter Property="LineHeight" Value="22" />
+    <Setter Property="TextAlignment" Value="Center" />
+  </Style>
+  <Style Selector="TextBlock.home-card-bookmark-outline, TextBlock.home-card-bookmark-filled">
+    <Setter Property="RenderTransformOrigin" Value="50%,50%" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.22">
+          <DoubleTransition.Easing><SplineEasing X1="0.2" Y1="0" X2="0.16" Y2="1" /></DoubleTransition.Easing>
+        </DoubleTransition>
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.28">
+          <TransformOperationsTransition.Easing><SplineEasing X1="0.2" Y1="0" X2="0.16" Y2="1" /></TransformOperationsTransition.Easing>
+        </TransformOperationsTransition>
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="TextBlock.home-card-bookmark-outline">
+    <Setter Property="Opacity" Value="1" />
+    <Setter Property="RenderTransform" Value="scale(1)" />
+  </Style>
+  <Style Selector="TextBlock.home-card-bookmark-filled">
+    <Setter Property="Opacity" Value="0" />
+    <Setter Property="RenderTransform" Value="scale(0.7)" />
+  </Style>
+  <Style Selector="Button.home-card-bookmark:pointerover TextBlock.home-card-bookmark-outline, Button.home-card-bookmark.saved TextBlock.home-card-bookmark-outline">
+    <Setter Property="Opacity" Value="0" />
+    <Setter Property="RenderTransform" Value="scale(0.76)" />
+  </Style>
+  <Style Selector="Button.home-card-bookmark:pointerover TextBlock.home-card-bookmark-filled, Button.home-card-bookmark.saved TextBlock.home-card-bookmark-filled">
+    <Setter Property="Opacity" Value="1" />
+    <Setter Property="RenderTransform" Value="scale(1)" />
+  </Style>
+  <Style Selector="TextBlock.home-card-action-label">
+    <Setter Property="Opacity" Value="0" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.3">
+          <DoubleTransition.Easing><SplineEasing X1="0.2" Y1="0" X2="0.16" Y2="1" /></DoubleTransition.Easing>
+        </DoubleTransition>
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.38">
+          <TransformOperationsTransition.Easing><SplineEasing X1="0.2" Y1="0" X2="0.16" Y2="1" /></TransformOperationsTransition.Easing>
+        </TransformOperationsTransition>
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="TextBlock.home-card-navigate-label">
+    <Setter Property="RenderTransform" Value="translateX(6px)" />
+  </Style>
+  <Style Selector="Button.home-card-navigate:pointerover TextBlock.home-card-navigate-label, Button.home-card-navigate:pressed TextBlock.home-card-navigate-label">
+    <Setter Property="Opacity" Value="1" />
+    <Setter Property="RenderTransform" Value="translateX(0px)" />
   </Style>
 
   <Style Selector="Button.home-mood-card">

@@ -11,6 +11,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
+using Rezui.Controls;
 using Rezui.Models;
 using Rezui.ViewModels;
 using Rezui.Views;
@@ -138,7 +139,7 @@ public sealed class MainWindowSmokeTests
     }
 
     [AvaloniaFact]
-    public void HomeHistoryCardUsesPointerDrivenTiltWithoutTooltipOrLayoutGrowth()
+    public async Task HomeHistoryCardKeepsThePosterStableAndRevealsShadowMetadata()
     {
         var templateOwner = new MainWindow();
         var template = Assert.IsAssignableFrom<IDataTemplate>(
@@ -155,12 +156,17 @@ public sealed class MainWindowSmokeTests
             false,
             _ => Task.CompletedTask,
             _ => Task.CompletedTask);
+        card.RatingLabel = "8.5";
+        card.YearLabel = "2016";
+        card.QualityLabel = "4K";
         var presenter = new ContentControl
         {
+            Width = 220,
+            Height = 330,
             Content = card,
             ContentTemplate = template,
-            HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Left,
-            VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Top
+            HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+            VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Stretch
         };
         var host = new Window { Width = 360, Height = 480, Content = presenter };
 
@@ -172,19 +178,170 @@ public sealed class MainWindowSmokeTests
                 .OfType<Grid>()
                 .First(control => control.Classes.Contains("home-media-card"));
             var initialBounds = root.Bounds;
-            var transforms = Assert.IsType<TransformGroup>(root.RenderTransform);
-            var tilt = Assert.Single(transforms.Children.OfType<Rotate3DTransform>());
             var poster = presenter.GetVisualDescendants()
                 .OfType<Image>()
                 .First(control => control.Classes.Contains("home-card-poster"));
             var frame = presenter.GetVisualDescendants()
                 .OfType<Border>()
                 .First(control => control.Classes.Contains("home-card-frame"));
+            var title = presenter.GetVisualDescendants()
+                .OfType<TextBlock>()
+                .First(control => control.Classes.Contains("home-card-title"));
+            var motionShadow = presenter.GetVisualDescendants()
+                .OfType<Border>()
+                .First(control => control.Classes.Contains("home-card-shadow-motion"));
+            var details = presenter.GetVisualDescendants()
+                .OfType<ProportionalReveal>()
+                .First(control => control.Classes.Contains("home-card-details"));
+            var actions = presenter.GetVisualDescendants()
+                .OfType<Grid>()
+                .First(control => control.Classes.Contains("home-card-actions"));
+            var navigate = presenter.GetVisualDescendants()
+                .OfType<Button>()
+                .Single(control => control.Classes.Contains("home-card-navigate"));
+            var bookmark = presenter.GetVisualDescendants()
+                .OfType<Button>()
+                .Single(control => control.Classes.Contains("home-card-bookmark"));
+            var navigateIcon = navigate.GetVisualDescendants()
+                .OfType<TextBlock>()
+                .Single(control => control.Classes.Contains("home-card-action-icon"));
+            var navigateLabel = navigate.GetVisualDescendants()
+                .OfType<TextBlock>()
+                .Single(control => control.Classes.Contains("home-card-navigate-label"));
+            var bookmarkOutline = bookmark.GetVisualDescendants()
+                .OfType<TextBlock>()
+                .Single(control => control.Classes.Contains("home-card-bookmark-outline"));
+            var bookmarkFilled = bookmark.GetVisualDescendants()
+                .OfType<TextBlock>()
+                .Single(control => control.Classes.Contains("home-card-bookmark-filled"));
+            var ratingValue = presenter.GetVisualDescendants()
+                .OfType<TextBlock>()
+                .Single(control => control.Classes.Contains("home-card-rating-value"));
+            var ratingStar = presenter.GetVisualDescendants()
+                .OfType<TextBlock>()
+                .Single(control => control.Classes.Contains("home-rating-star"));
             Assert.Null(ToolTip.GetTip(root));
+            Assert.Null(root.RenderTransform);
             Assert.Equal(new Avalonia.Thickness(-4), poster.Margin);
             Assert.Equal(new Avalonia.CornerRadius(0), frame.CornerRadius);
-            Assert.Equal(850, tilt.Depth);
+            var posterScale = Assert.IsType<ScaleTransform>(poster.RenderTransform);
+            Assert.Equal(1.045, posterScale.ScaleX);
+            Assert.Equal(0, details.RevealProgress);
+            Assert.Equal(0, details.Bounds.Height);
+            Assert.Contains(actions, details.GetVisualDescendants().OfType<Grid>());
+            Assert.Equal("arrow_forward", navigateIcon.Text);
+            Assert.Equal("Перейти", navigateLabel.Text);
+            Assert.Equal("bookmark_border", bookmarkOutline.Text);
+            Assert.Equal("bookmark", bookmarkFilled.Text);
+            Assert.Equal(0, Grid.GetColumn(bookmark));
+            Assert.Equal(1, Grid.GetColumn(navigate));
+            Assert.Equal(Avalonia.Layout.HorizontalAlignment.Stretch, navigate.HorizontalContentAlignment);
+            Assert.Equal(Avalonia.Layout.VerticalAlignment.Center, navigate.VerticalContentAlignment);
+            Assert.Equal(Avalonia.Layout.HorizontalAlignment.Left, bookmark.HorizontalContentAlignment);
+            Assert.Equal(Avalonia.Layout.VerticalAlignment.Center, bookmark.VerticalContentAlignment);
+            Assert.Equal(new Size(22, 22), navigateIcon.Bounds.Size);
+            Assert.Equal(new Size(22, 22), bookmarkOutline.Bounds.Size);
+            Assert.Equal(new Size(22, 22), bookmarkFilled.Bounds.Size);
+            Assert.Same(navigate.Theme, bookmark.Theme);
+            Assert.NotNull(navigate.Theme);
+            Assert.Equal(Brushes.Transparent, bookmark.Background);
+            Assert.Null(bookmark.Transitions);
+            Assert.Equal(1, bookmarkOutline.Opacity);
+            Assert.Equal(0, bookmarkFilled.Opacity);
+            Assert.Equal(0, navigateLabel.Opacity);
+            var initialNavigateIconCenter = navigateIcon.TranslatePoint(new Point(11, 11), navigate);
+            Assert.NotNull(initialNavigateIconCenter);
+            Assert.InRange(initialNavigateIconCenter.Value.X, 16.5, 17.5);
+            Assert.InRange(initialNavigateIconCenter.Value.Y, 16.5, 17.5);
+            var titleLeft = title.TranslatePoint(default, root);
+            var bookmarkVisualLeft = bookmarkOutline.TranslatePoint(default, root);
+            Assert.NotNull(titleLeft);
+            Assert.NotNull(bookmarkVisualLeft);
+            Assert.InRange(Math.Abs(titleLeft.Value.X - bookmarkVisualLeft.Value.X), 0, 0.5);
+            Assert.Equal("8.5", ratingValue.Text);
+            Assert.Equal(card.MetadataFontFamily, ratingValue.FontFamily);
+            Assert.Equal(FontWeight.SemiBold, ratingValue.FontWeight);
+            Assert.Equal(Brushes.White, ratingStar.Foreground);
+            Assert.DoesNotContain(
+                presenter.GetVisualDescendants().OfType<TextBlock>(),
+                control => control.Text == card.Category);
+            Assert.DoesNotContain(
+                presenter.GetVisualDescendants().OfType<TextBlock>(),
+                control => control.Text is "2016" or "4K");
+
+            host.MouseMove(new Point(100, 100), RawInputModifiers.None);
+            await Task.Delay(90);
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick(8);
+            host.UpdateLayout();
+
+            Assert.InRange(details.RevealProgress, 0.001, 0.999);
+
+            await Task.Delay(760);
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick(48);
+            host.UpdateLayout();
+
+            Assert.True(root.IsPointerOver);
+            Assert.Equal(1, details.RevealProgress);
+            Assert.True(motionShadow.Opacity > 0.9);
+            Assert.Equal(34, actions.Bounds.Height);
             Assert.Equal(initialBounds.Size, root.Bounds.Size);
+
+            var navigateCenter = navigate.TranslatePoint(new Point(17, 17), host);
+            Assert.NotNull(navigateCenter);
+            host.MouseMove(navigateCenter.Value, RawInputModifiers.None);
+            await Task.Delay(500);
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick(32);
+            host.UpdateLayout();
+
+            Assert.True(navigate.IsPointerOver);
+            Assert.InRange(navigate.Width, 95.5, 96.5);
+            Assert.True(navigateLabel.Opacity > 0.9);
+            var expandedLabelLeft = navigateLabel.TranslatePoint(default, navigate);
+            var expandedArrowLeft = navigateIcon.TranslatePoint(default, navigate);
+            Assert.NotNull(expandedLabelLeft);
+            Assert.NotNull(expandedArrowLeft);
+            Assert.InRange(expandedLabelLeft.Value.X, 11.5, 12.5);
+            Assert.InRange(
+                expandedArrowLeft.Value.X - (expandedLabelLeft.Value.X + navigateLabel.Bounds.Width),
+                6,
+                20);
+
+            var bookmarkCenter = bookmark.TranslatePoint(new Point(17, 17), host);
+            Assert.NotNull(bookmarkCenter);
+            host.MouseMove(bookmarkCenter.Value, RawInputModifiers.None);
+            await Task.Delay(500);
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick(32);
+            host.UpdateLayout();
+
+            Assert.True(bookmark.IsPointerOver);
+            Assert.Equal(34, bookmark.Width);
+            Assert.Equal(Brushes.Transparent, bookmark.Background);
+            Assert.True(bookmarkOutline.Opacity < 0.1);
+            Assert.True(bookmarkFilled.Opacity > 0.9);
+
+            host.MouseDown(bookmarkCenter.Value, MouseButton.Left, RawInputModifiers.None);
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick(1);
+            Assert.Equal(Brushes.Transparent, bookmark.Background);
+            host.MouseUp(bookmarkCenter.Value, MouseButton.Left, RawInputModifiers.None);
+            card.IsSaved = true;
+            await Task.Delay(40);
+            host.UpdateLayout();
+            Assert.True(bookmarkFilled.Opacity > 0.9);
+
+            host.MouseMove(new Point(350, 450), RawInputModifiers.None);
+            await Task.Delay(60);
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick(4);
+            host.UpdateLayout();
+
+            Assert.InRange(details.RevealProgress, 0.001, 0.999);
+
+            await Task.Delay(760);
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick(48);
+            host.UpdateLayout();
+
+            Assert.False(root.IsPointerOver);
+            Assert.Equal(0, details.RevealProgress);
+            Assert.Equal(0, details.Bounds.Height);
         }
         finally
         {

@@ -395,6 +395,13 @@ public interface IMasonryItem
 
 public sealed partial class HomeMediaCardItem : ObservableObject, IMasonryItem
 {
+    private static readonly FontFamily MetadataFont = new(
+        OperatingSystem.IsLinux()
+            ? "Noto Sans"
+            : OperatingSystem.IsWindows()
+                ? "Segoe UI"
+                : "Helvetica Neue");
+
     private static readonly Color[] AccentColors =
     [
         Color.Parse("#7C6CFF"),
@@ -433,6 +440,15 @@ public sealed partial class HomeMediaCardItem : ObservableObject, IMasonryItem
 
     public string Title => Media.Title;
 
+    public double HomeTitleFontSize => Title.Length switch
+    {
+        > 46 => 12.5,
+        > 30 => 13.5,
+        _ => 15
+    };
+
+    public double HomeTitleLineHeight => Math.Round(HomeTitleFontSize * 1.24, 1);
+
     public Uri Url => Media.Url;
 
     public DeferredImageSource ImageSource => Media.ImageSource;
@@ -446,6 +462,8 @@ public sealed partial class HomeMediaCardItem : ObservableObject, IMasonryItem
     public IAsyncRelayCommand ToggleSavedCommand { get; }
 
     public IBrush AccentBrush { get; }
+
+    public FontFamily MetadataFontFamily => MetadataFont;
 
     public bool IsLarge => (Position + 1) % 5 == 0;
 
@@ -498,9 +516,9 @@ public sealed partial class HomeMediaCardItem : ObservableObject, IMasonryItem
     [NotifyPropertyChangedFor(nameof(HasProgress))]
     private string _progressLabel = string.Empty;
 
-    public string SavedIcon => IsSaved ? "check" : "add";
+    public string SavedIcon => IsSaved ? "bookmark" : "bookmark_border";
 
-    public string SavedLabel => IsSaved ? "В списке" : "В мой список";
+    public string SavedLabel => IsSaved ? "В закладках" : "В закладки";
 
     public bool HasRating => !string.IsNullOrEmpty(RatingLabel);
 
