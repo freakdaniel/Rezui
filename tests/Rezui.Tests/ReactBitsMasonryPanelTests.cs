@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Templates;
@@ -18,7 +19,7 @@ public sealed class ReactBitsMasonryPanelTests
     {
         var templateOwner = new MainWindow();
         var template = Assert.IsAssignableFrom<IDataTemplate>(
-            templateOwner.Resources["HomePosterCardTemplate"]);
+            Application.Current!.FindResource("HomePosterCardTemplate"));
         var cards = Enumerable.Range(0, 10)
             .Select(index => CreateHomeCard(index))
             .ToArray();

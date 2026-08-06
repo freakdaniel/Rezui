@@ -1,0 +1,170 @@
+<UserControl
+    x:Class="Rezui.Views.SettingsPage"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="clr-namespace:Rezui.ViewModels"
+    x:DataType="vm:MainWindowViewModel">
+
+  <ScrollViewer Classes="smooth-scroll" IsVisible="{Binding IsSettingsVisible}">
+    <StackPanel
+        MaxWidth="920"
+        Margin="28,126,28,56"
+        HorizontalAlignment="Center"
+        Spacing="24">
+      <StackPanel Spacing="5">
+        <TextBlock Classes="h1" Text="Настройки" />
+        <TextBlock Classes="muted" Text="Внешний вид, подключение и текущая сессия" />
+      </StackPanel>
+
+      <Border Padding="24" Classes="card">
+        <StackPanel Spacing="18">
+          <StackPanel Spacing="5">
+            <TextBlock Classes="h2" Text="Оформление" />
+            <TextBlock Classes="muted" Text="Выберите тему интерфейса Rezui" />
+          </StackPanel>
+          <WrapPanel>
+            <Button
+                Margin="0,0,10,8"
+                Classes="theme-choice"
+                Classes.active="{Binding IsSystemTheme}"
+                Command="{Binding SetThemeCommand}"
+                CommandParameter="System">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Classes="symbol" Text="desktop_windows" />
+                <TextBlock Text="Системная" />
+              </StackPanel>
+            </Button>
+            <Button
+                Margin="0,0,10,8"
+                Classes="theme-choice"
+                Classes.active="{Binding IsLightTheme}"
+                Command="{Binding SetThemeCommand}"
+                CommandParameter="Light">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Classes="symbol filled" Text="light_mode" />
+                <TextBlock Text="Светлая" />
+              </StackPanel>
+            </Button>
+            <Button
+                Margin="0,0,10,8"
+                Classes="theme-choice"
+                Classes.active="{Binding IsDarkTheme}"
+                Command="{Binding SetThemeCommand}"
+                CommandParameter="Dark">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Classes="symbol filled" Text="dark_mode" />
+                <TextBlock Text="Тёмная" />
+              </StackPanel>
+            </Button>
+          </WrapPanel>
+        </StackPanel>
+      </Border>
+
+      <Border
+          Padding="24"
+          Classes="card"
+          IsVisible="{Binding IsGraphicsAdapterSupported}">
+        <StackPanel Spacing="18">
+          <StackPanel Spacing="5">
+            <TextBlock Classes="h2" Text="Графика" />
+            <TextBlock
+                Classes="muted"
+                Text="Адаптер для отрисовки интерфейса на системах с двумя GPU. Выбор применяется после перезапуска приложения" />
+          </StackPanel>
+          <WrapPanel>
+            <Button
+                Margin="0,0,10,8"
+                Classes="theme-choice"
+                Classes.active="{Binding IsAutoGraphicsAdapter}"
+                Command="{Binding SetGraphicsAdapterCommand}"
+                CommandParameter="Auto">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Classes="symbol" Text="memory" />
+                <TextBlock Text="Авто" />
+              </StackPanel>
+            </Button>
+            <Button
+                Margin="0,0,10,8"
+                Classes="theme-choice"
+                Classes.active="{Binding IsDiscreteGraphicsAdapter}"
+                Command="{Binding SetGraphicsAdapterCommand}"
+                CommandParameter="Discrete">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Classes="symbol filled" Text="bolt" />
+                <TextBlock Text="Дискретная" />
+              </StackPanel>
+            </Button>
+            <Button
+                Margin="0,0,10,8"
+                Classes="theme-choice"
+                Classes.active="{Binding IsIntegratedGraphicsAdapter}"
+                Command="{Binding SetGraphicsAdapterCommand}"
+                CommandParameter="Integrated">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Classes="symbol" Text="eco" />
+                <TextBlock Text="Встроенная" />
+              </StackPanel>
+            </Button>
+          </WrapPanel>
+        </StackPanel>
+      </Border>
+
+      <Border Padding="24" Classes="card">
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel Spacing="5">
+            <TextBlock Classes="h2" Text="Диагностика" />
+            <TextBlock
+                Classes="muted"
+                Text="Журнал запуска, сети, кэша, синхронизации и ошибок" />
+          </StackPanel>
+          <Button
+              Grid.Column="1"
+              VerticalAlignment="Center"
+              Classes="ghost"
+              Command="{Binding OpenLogsFolderCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Classes="symbol" Text="folder_open" />
+              <TextBlock Text="Открыть логи" />
+            </StackPanel>
+          </Button>
+        </Grid>
+      </Border>
+
+      <Border Padding="24" Classes="card">
+        <Grid ColumnDefinitions="Auto,*,Auto">
+          <Border
+              Width="58"
+              Height="58"
+              Background="{StaticResource Brush.Brand.Soft}"
+              CornerRadius="29"
+              ClipToBounds="True">
+            <Grid>
+              <TextBlock
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  Foreground="{StaticResource Brush.Brand}"
+                  FontSize="17"
+                  FontWeight="Bold"
+                  Text="{Binding ProfileInitials}" />
+              <Image Source="{Binding ProfileImageSource^}" Stretch="UniformToFill" />
+            </Grid>
+          </Border>
+          <StackPanel Grid.Column="1" Margin="16,0" VerticalAlignment="Center">
+            <TextBlock FontSize="17" FontWeight="SemiBold" Text="{Binding ProfileName}" />
+            <TextBlock Classes="muted" Text="{Binding ProfileEmail}" />
+          </StackPanel>
+          <Button
+              Grid.Column="2"
+              VerticalAlignment="Center"
+              Classes="ghost"
+              Command="{Binding LogoutCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Classes="symbol" Text="logout" />
+              <TextBlock Text="Выйти" />
+            </StackPanel>
+          </Button>
+        </Grid>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

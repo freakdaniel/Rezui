@@ -11,6 +11,9 @@ public sealed class AppSettings
     public List<string> CustomMirrors { get; set; } = [];
 
     public List<string> PinnedMediaUrls { get; set; } = [];
+
+    public GraphicsAdapterPreference GraphicsAdapter { get; set; } =
+        GraphicsAdapterPreference.Auto;
 }
 
 public sealed class AuthState
@@ -31,4 +34,11 @@ public enum ThemePreference
     System,
     Light,
     Dark
+}
+
+public enum GraphicsAdapterPreference
+{
+    Auto,
+    Discrete,
+    Integrated
 }

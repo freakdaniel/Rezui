@@ -85,13 +85,20 @@ public sealed class LocalCacheStoreTests
             OpenedAt = DateTimeOffset.UtcNow
         };
 
-        await cache.SaveRecentAsync(older, cancellationToken);
-        await cache.SaveRecentAsync(newer, cancellationToken);
-        var restored = await cache.GetRecentAsync(cancellationToken: cancellationToken);
+        await cache.SaveRecentAsync("account-a", older, cancellationToken);
+        await cache.SaveRecentAsync("account-a", newer, cancellationToken);
+        var restored = await cache.GetRecentAsync(
+            "account-a",
+            cancellationToken: cancellationToken);
 
         var item = Assert.Single(restored);
         Assert.Equal("Новое название", item.Title);
         Assert.Equal(newer.ImageUrl, item.ImageUrl);
+
+        var otherAccount = await cache.GetRecentAsync(
+            "account-b",
+            cancellationToken: cancellationToken);
+        Assert.Empty(otherAccount);
     }
 
     private sealed record CacheProbe(string Text, int Number);

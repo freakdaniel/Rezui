@@ -1,6 +1,6 @@
 using Avalonia.Media.Imaging;
 using Rezui.Models;
-using Rezui.ViewModels;
+using Rezui.Services;
 using Xunit;
 
 namespace Rezui.Tests;
@@ -27,7 +27,7 @@ public sealed class CommentTreeBuilderTests
         Build(IEnumerable<SourceComment> comments, Dictionary<long, CommentNodeItem>? index = null)
     {
         index ??= [];
-        var roots = MainWindowViewModel.BuildCommentTree(
+        var roots = CommentService.BuildCommentTree(
             comments.ToList(),
             source => (source.Id, source.ParentId, MakeNode(source)),
             index);

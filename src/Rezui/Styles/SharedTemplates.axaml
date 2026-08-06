@@ -1,0 +1,435 @@
+<ResourceDictionary
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:layout="clr-namespace:Avalonia.Layout;assembly=Avalonia.Controls.ItemsRepeater"
+    xmlns:models="clr-namespace:Rezui.Models"
+    xmlns:controls="clr-namespace:Rezui.Controls"
+    xmlns:vm="clr-namespace:Rezui.ViewModels">
+
+  <!--
+    Shared control themes and data templates used across pages.
+    Kept at application scope so every page (UserControl) reuses the exact
+    same card / comment rendering without duplicating markup.
+
+    Commands that previously bound to the window by name (#RootWindow) now
+    resolve through $parent[Window] so the templates are portable across
+    windows and pages.
+  -->
+
+  <ControlTheme x:Key="HomeCardActionButtonTheme" TargetType="Button">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border
+            Background="{TemplateBinding Background}"
+            BorderBrush="{TemplateBinding BorderBrush}"
+            BorderThickness="{TemplateBinding BorderThickness}"
+            ClipToBounds="{TemplateBinding ClipToBounds}"
+            CornerRadius="{TemplateBinding CornerRadius}">
+          <ContentPresenter
+              Padding="{TemplateBinding Padding}"
+              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+              Content="{TemplateBinding Content}"
+              ContentTemplate="{TemplateBinding ContentTemplate}" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+  <DataTemplate x:Key="MediaCardTemplate" x:DataType="models:MediaCardItem">
+    <Button
+        Width="174"
+        Margin="0,0,16,20"
+        Classes="media-card"
+        Command="{Binding OpenCommand}">
+      <StackPanel Spacing="10">
+        <Border
+            Height="246"
+            Background="{DynamicResource Brush.Surface.Secondary}"
+            BorderBrush="{DynamicResource Brush.Border.Subtle}"
+            BorderThickness="1"
+            CornerRadius="16"
+            ClipToBounds="True">
+          <Grid>
+            <TextBlock
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Classes="symbol"
+                Foreground="{DynamicResource Brush.Text.Secondary}"
+                Text="movie" />
+            <Image Source="{Binding ImageSource.Value^}" Stretch="UniformToFill" />
+            <Border
+                Padding="9,5"
+                Margin="10"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Bottom"
+                Background="#CC111014"
+                CornerRadius="8">
+              <TextBlock
+                  Foreground="White"
+                  FontSize="11"
+                  FontWeight="SemiBold"
+                  Text="{Binding Category}" />
+            </Border>
+          </Grid>
+        </Border>
+        <TextBlock
+            MaxHeight="44"
+            FontSize="14"
+            FontWeight="SemiBold"
+            Text="{Binding Title}"
+            TextTrimming="CharacterEllipsis"
+            TextWrapping="Wrap" />
+      </StackPanel>
+    </Button>
+  </DataTemplate>
+
+  <DataTemplate x:Key="HomeMoodCardTemplate" x:DataType="vm:QuickSearchItem">
+    <Grid
+        Width="156"
+        Height="156"
+        Margin="0,0,14,14">
+      <Button
+          Padding="0"
+          HorizontalAlignment="Stretch"
+          VerticalAlignment="Stretch"
+          Classes="home-mood-card"
+          Classes.orbit="{Binding IsOrbitMotion}"
+          Classes.sweep="{Binding IsSweepMotion}"
+          Classes.ripple="{Binding IsRippleMotion}"
+          Classes.drift="{Binding IsDriftMotion}"
+          Classes.pencil="{Binding IsPencilArtwork}"
+          Classes.book="{Binding IsBookArtwork}"
+          Classes.home="{Binding IsHomeArtwork}"
+          Classes.fedora="{Binding IsFedoraArtwork}"
+          Classes.cat="{Binding IsCatArtwork}"
+          Classes.fingerprint="{Binding IsFingerprintArtwork}"
+          Classes.lion="{Binding IsLionArtwork}"
+          Classes.bulb="{Binding IsBulbArtwork}"
+          Command="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).QuickSearchCommand}"
+          CommandParameter="{Binding Query}">
+        <Border
+            Background="{Binding AccentBrush}"
+            Classes="home-mood-surface"
+            CornerRadius="26"
+            ClipToBounds="True"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch">
+          <Grid>
+            <Image
+                Width="112"
+                Height="112"
+                Margin="0,3,-3,0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Classes="home-mood-artwork"
+                IsHitTestVisible="False"
+                Source="{Binding ArtworkSource.Value^}"
+                Stretch="Uniform" />
+            <Border Classes="home-mood-wash" IsHitTestVisible="False" />
+          </Grid>
+        </Border>
+      </Button>
+      <TextBlock
+          MaxHeight="42"
+          Margin="15,0,15,14"
+          VerticalAlignment="Bottom"
+          Classes="home-mood-label"
+          FontFamily="{Binding LabelFontFamily}"
+          FontSize="15"
+          IsHitTestVisible="False"
+          LineHeight="19"
+          TextTrimming="CharacterEllipsis"
+          TextWrapping="Wrap">
+        <TextBlock.Inlines><Run Foreground="#D9FFFFFF" FontWeight="Medium" Text="{Binding Caption}" /><Run Text=" " /><Run Foreground="White" FontWeight="Bold" Text="{Binding InlineTitle}" /></TextBlock.Inlines>
+      </TextBlock>
+    </Grid>
+  </DataTemplate>
+
+  <DataTemplate x:Key="HomePosterCardTemplate" x:DataType="models:HomeMediaCardItem">
+    <Grid
+        Height="{Binding MasonryHeight}"
+        Classes="home-media-card">
+      <!-- PointerEntered is wired in HomePage code-behind via the
+           PointerEntered="HomeCard_OnPointerEntered" attribute on the
+           ItemsControl that uses this template. -->
+      <Border
+          Background="{DynamicResource Brush.Surface.Secondary}"
+          BorderThickness="0"
+          BoxShadow="0 16 34 0 #52000000"
+          Classes="home-card-frame"
+          CornerRadius="0"
+          ClipToBounds="True">
+        <Grid>
+          <Border Classes="home-card-skeleton" />
+          <Image
+              Margin="-4"
+              Classes="home-card-poster"
+              RenderTransformOrigin="50%,50%"
+              Source="{Binding ImageSource.Value^}"
+              Stretch="UniformToFill">
+            <Image.RenderTransform>
+              <ScaleTransform ScaleX="1.045" ScaleY="1.045" />
+            </Image.RenderTransform>
+          </Image>
+          <Border Classes="home-card-inner-light" IsHitTestVisible="False" />
+
+          <Button
+              Padding="0"
+              Background="Transparent"
+              BorderThickness="0"
+              Classes="home-card-open"
+              Command="{Binding OpenCommand}"
+              Cursor="Hand"
+              HorizontalContentAlignment="Stretch"
+              VerticalContentAlignment="Stretch"
+              AutomationProperties.Name="{Binding Title}" />
+
+          <Border Classes="home-card-shadow-base" IsHitTestVisible="False" />
+          <Border
+              VerticalAlignment="Bottom"
+              Classes="home-card-shadow-motion"
+              IsHitTestVisible="False" />
+
+          <StackPanel
+              Margin="15,0,15,15"
+              VerticalAlignment="Bottom"
+              Classes="home-card-info"
+              Spacing="4">
+            <TextBlock
+                MaxHeight="44"
+                Classes="home-card-title"
+                Foreground="White"
+                FontSize="{Binding HomeTitleFontSize}"
+                FontWeight="SemiBold"
+                IsHitTestVisible="False"
+                LineHeight="{Binding HomeTitleLineHeight}"
+                Text="{Binding Title}"
+                TextTrimming="CharacterEllipsis"
+                TextWrapping="Wrap" />
+
+            <controls:ProportionalReveal Classes="home-card-details" ClipToBounds="True">
+              <StackPanel Margin="0,7,0,0" Spacing="8">
+                <StackPanel IsHitTestVisible="False" Orientation="Horizontal" Spacing="6">
+                  <TextBlock Classes="symbol filled home-rating-star" Text="star" IsVisible="{Binding HasRating}" />
+                  <TextBlock
+                      Classes="home-card-rating-value"
+                      VerticalAlignment="Center"
+                      FontFamily="{Binding MetadataFontFamily}"
+                      Foreground="White"
+                      FontSize="12"
+                      FontWeight="SemiBold"
+                      IsVisible="{Binding HasRating}"
+                      Text="{Binding RatingLabel}" />
+                </StackPanel>
+
+                <StackPanel IsHitTestVisible="False" IsVisible="{Binding HasProgress}" Spacing="5">
+                  <TextBlock
+                      Foreground="#D8FFFFFF"
+                      FontSize="10"
+                      FontWeight="SemiBold"
+                      Text="{Binding ProgressLabel}"
+                      TextTrimming="CharacterEllipsis" />
+                  <Grid Height="2" ColumnDefinitions="2*,3*">
+                    <Border Background="{Binding AccentBrush}" CornerRadius="1" />
+                    <Border Grid.Column="1" Background="#28FFFFFF" CornerRadius="1" />
+                  </Grid>
+                </StackPanel>
+
+                <WrapPanel IsHitTestVisible="False">
+                  <TextBlock Classes="home-card-fact" IsVisible="{Binding HasDuration}" Text="{Binding DurationLabel}" />
+                  <TextBlock Classes="home-card-fact" IsVisible="{Binding HasEpisodeCount}" Text="{Binding EpisodeCountLabel}" />
+                  <TextBlock Classes="home-card-fact" IsVisible="{Binding HasAgeRating}" Text="{Binding AgeRatingLabel}" />
+                </WrapPanel>
+                <Grid
+                    Height="34"
+                    Classes="home-card-actions"
+                    ColumnDefinitions="Auto,Auto,*"
+                    ColumnSpacing="8">
+                  <Button
+                      Height="34"
+                      Padding="0"
+                      Classes="home-card-bookmark"
+                      Classes.saved="{Binding IsSaved}"
+                      Command="{Binding ToggleSavedCommand}"
+                      Theme="{StaticResource HomeCardActionButtonTheme}"
+                      AutomationProperties.Name="{Binding SavedLabel}">
+                    <Grid Width="22" Height="22">
+                      <TextBlock
+                          Classes="symbol home-card-action-icon home-card-bookmark-outline"
+                          Text="bookmark_border" />
+                      <TextBlock
+                          Classes="symbol filled home-card-action-icon home-card-bookmark-filled"
+                          Text="bookmark" />
+                    </Grid>
+                  </Button>
+                  <Button
+                      Grid.Column="1"
+                      Height="34"
+                      Padding="0"
+                      Classes="home-card-navigate"
+                      Command="{Binding OpenCommand}"
+                      Theme="{StaticResource HomeCardActionButtonTheme}"
+                      AutomationProperties.Name="Открыть страницу тайтла">
+                    <Grid Margin="6,0">
+                      <TextBlock
+                          Margin="6,0,29,0"
+                          HorizontalAlignment="Left"
+                          VerticalAlignment="Center"
+                          Classes="home-card-action-label home-card-navigate-label"
+                          FontSize="11"
+                          FontWeight="SemiBold"
+                          Text="Перейти"
+                          TextWrapping="NoWrap" />
+                      <TextBlock
+                          HorizontalAlignment="Right"
+                          Classes="symbol home-card-action-icon"
+                          Text="arrow_forward" />
+                    </Grid>
+                  </Button>
+                </Grid>
+              </StackPanel>
+            </controls:ProportionalReveal>
+          </StackPanel>
+        </Grid>
+      </Border>
+    </Grid>
+  </DataTemplate>
+
+  <DataTemplate x:Key="CommentNodeTemplate" x:DataType="models:CommentNodeItem">
+    <Grid
+        Classes="comment-node"
+        ColumnDefinitions="38,*"
+        VerticalAlignment="Top">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="{Binding BranchRowHeight, FallbackValue=0}" />
+        <RowDefinition Height="{Binding BranchRowHeight, FallbackValue=0}" />
+      </Grid.RowDefinitions>
+      <!-- Avatar column. A two-row inner grid keeps the thread anchored to the
+           fixed 38px avatar (constant ~5px gap under it) rather than to the
+           taller content column. The thread spans rows 1-2 so it reaches the
+           toggle row where the elbow continues it; its bottom margin stops it
+           just above the elbow so they join without overlap. -->
+      <Grid
+          Grid.Row="0"
+          Grid.RowSpan="{Binding AvatarRowSpan, FallbackValue=1}"
+          Grid.Column="0"
+          RowDefinitions="38,*">
+        <Border
+            Grid.Row="0"
+            Width="38"
+            Height="38"
+            CornerRadius="19"
+            ClipToBounds="True"
+            Background="{DynamicResource Brush.Surface.Secondary}">
+          <Image Source="{Binding AvatarSource.Value^}" Stretch="UniformToFill" />
+        </Border>
+        <Border
+            Grid.Row="1"
+            Width="2"
+            Margin="0,5,0,30"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Stretch"
+            Background="{DynamicResource Brush.Border.Subtle}"
+            IsVisible="{Binding HasReplies, FallbackValue=False}" />
+      </Grid>
+
+      <!-- Comment content (row 0). -->
+      <StackPanel Grid.Row="0" Grid.Column="1" Margin="10,0,0,0" Spacing="5" VerticalAlignment="Top" Classes="comment-content">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <TextBlock FontSize="12" FontWeight="SemiBold" Text="{Binding Author}" />
+          <TextBlock VerticalAlignment="Center" Classes="muted" FontSize="10" Text="{Binding DateLabel}" />
+        </StackPanel>
+        <TextBlock FontSize="12" LineHeight="18" Text="{Binding Text}" TextWrapping="Wrap" />
+        <StackPanel VerticalAlignment="Center" Orientation="Horizontal" Spacing="5">
+          <TextBlock
+              VerticalAlignment="Center"
+              Classes="symbol"
+              FontSize="15"
+              LineHeight="16"
+              Text="thumb_up" />
+          <TextBlock
+              VerticalAlignment="Center"
+              Classes="muted"
+              FontSize="12"
+              FontWeight="Medium"
+              LineHeight="16"
+              Text="{Binding Likes}" />
+        </StackPanel>
+      </StackPanel>
+
+      <!-- Replies (row 1). -->
+      <StackPanel
+          Grid.Row="1"
+          Grid.Column="1"
+          Margin="0,16,0,0"
+          IsVisible="{Binding HasReplies, FallbackValue=False}">
+        <ItemsControl ItemTemplate="{StaticResource CommentNodeTemplate}" ItemsSource="{Binding VisibleReplies}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Spacing="10" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+        </ItemsControl>
+      </StackPanel>
+
+      <!-- The entire toggle row is hidden for leaf comments so an invisible
+           button cannot leave its measured height below a nested reply. -->
+      <Grid
+          Grid.Row="2"
+          Grid.Column="0"
+          Grid.ColumnSpan="2"
+          Classes="comment-toggle-row"
+          ColumnDefinitions="38,*"
+          IsVisible="{Binding HasReplies, FallbackValue=False}">
+        <!-- The elbow uses the same 2px stroke as the vertical thread. -->
+        <Path
+            Grid.Column="0"
+            Grid.ColumnSpan="2"
+            Classes="comment-thread-elbow"
+            Width="38"
+            Height="30"
+            Margin="0,16,0,0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Center"
+            Stretch="None"
+            Stroke="{DynamicResource Brush.Border.Subtle}"
+            StrokeThickness="2"
+            StrokeJoin="Round"
+            Data="M 19 0 L 19 9 Q 19 15 25 15 L 38 15" />
+        <Button
+            Grid.Column="1"
+            Margin="8,16,0,0"
+            VerticalAlignment="Center"
+            Classes="comment-toggle"
+            Command="{Binding ToggleExpandedCommand}"
+            IsVisible="{Binding HasOverflow}"
+            ToolTip.Tip="Развернуть или свернуть остальные ответы">
+          <StackPanel Orientation="Horizontal" Spacing="5">
+            <TextBlock Classes="symbol" FontSize="15" Text="{Binding CollapseIcon}" />
+            <TextBlock Text="{Binding OverflowLabel}" />
+          </StackPanel>
+        </Button>
+        <Button
+            Grid.Column="1"
+            Margin="8,16,0,0"
+            VerticalAlignment="Center"
+            Classes="comment-toggle"
+            Command="{Binding ToggleExpandedCommand}"
+            IsVisible="{Binding CanToggleBranch}">
+          <StackPanel Orientation="Horizontal" Spacing="5">
+            <TextBlock Classes="symbol" FontSize="15" Text="{Binding CollapseIcon}" />
+            <TextBlock Text="{Binding CollapseLabel}" />
+          </StackPanel>
+        </Button>
+      </Grid>
+    </Grid>
+  </DataTemplate>
+
+  <!--
+    Typed DataTemplates (DataType=...) live in App.DataTemplates rather than
+    inside a ResourceDictionary: Avalonia resolves them from a separate
+    collection keyed by runtime content type. See App.axaml.
+  -->
+</ResourceDictionary>

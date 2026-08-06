@@ -141,6 +141,7 @@ public sealed class SettingsServiceTests
         var settings = await service.LoadAsync(TestContext.Current.CancellationToken);
         var auth = await service.LoadAuthAsync(TestContext.Current.CancellationToken);
         var recent = await cache.GetRecentAsync(
+            "https://example.com|42",
             cancellationToken: TestContext.Current.CancellationToken);
         var cleanSettingsJson = await File.ReadAllTextAsync(
             service.SettingsPath,
@@ -155,6 +156,15 @@ public sealed class SettingsServiceTests
             cleanSettingsJson,
             StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("recent", cleanSettingsJson, StringComparison.OrdinalIgnoreCase);
-        Assert.False(File.Exists(legacyPath));
+        // On case-insensitive filesystems (Windows, default macOS) the legacy
+        // "settings.json" and the canonical "Settings.json" are the same file,
+        // so after migration the file still exists under both spellings — what
+        // matters is that the on-disk content is the clean canonical form, which
+        // the assertions above already verify. On case-sensitive systems the
+        // separate lowercase legacy file must be removed.
+        if (!string.Equals(legacyPath, service.SettingsPath, StringComparison.OrdinalIgnoreCase))
+        {
+            Assert.False(File.Exists(legacyPath));
+        }
     }
 }

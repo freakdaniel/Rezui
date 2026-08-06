@@ -40,6 +40,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private readonly ThemeService _themes;
     private readonly LibrarySyncWorker _librarySync;
     private readonly IMirrorDiscoveryService _mirrorDiscovery;
+    private readonly CommentService _comments;
     private readonly ILogger _logger;
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private CancellationTokenSource? _operationCancellation;
@@ -53,6 +54,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private MediaStream? _resolvedStream;
     private string? _resolvedSelectionKey;
     private bool _suppressSeasonChange;
+    private bool _suppressTranslationChange;
+    private IReadOnlyList<Season>? _loadedSeasons;
+    private int _loadedSeasonsTranslatorId;
     private int _detailsRequestVersion;
     private int _detailsImageVersion;
     private int _detailsImageUpgradeVersion;
@@ -81,6 +85,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         _librarySync = librarySync;
         _mirrorDiscovery = mirrorDiscovery;
         _logger = logger ?? Log.ForContext<MainWindowViewModel>();
+        _comments = new CommentService(
+            _rezka,
+            _images,
+            () => _media,
+            () => _detailsRequestVersion,
+            _logger);
         Player = player;
         _librarySync.SnapshotChanged += OnLibrarySnapshotChanged;
         _librarySync.SyncFailed += OnLibrarySyncFailed;
@@ -437,6 +447,28 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     [ObservableProperty]
+    private GraphicsAdapterPreference _selectedGraphicsAdapter =
+        GraphicsAdapterPreference.Auto;
+
+    public bool IsGraphicsAdapterSupported => GraphicsAdapterService.IsSupported;
+
+    public bool IsAutoGraphicsAdapter =>
+        SelectedGraphicsAdapter == GraphicsAdapterPreference.Auto;
+
+    public bool IsDiscreteGraphicsAdapter =>
+        SelectedGraphicsAdapter == GraphicsAdapterPreference.Discrete;
+
+    public bool IsIntegratedGraphicsAdapter =>
+        SelectedGraphicsAdapter == GraphicsAdapterPreference.Integrated;
+
+    partial void OnSelectedGraphicsAdapterChanged(GraphicsAdapterPreference value)
+    {
+        OnPropertyChanged(nameof(IsAutoGraphicsAdapter));
+        OnPropertyChanged(nameof(IsDiscreteGraphicsAdapter));
+        OnPropertyChanged(nameof(IsIntegratedGraphicsAdapter));
+    }
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DetailsTitleFontSize))]
     [NotifyPropertyChangedFor(nameof(DetailsTitleLineHeight))]
     private string _detailsTitle = string.Empty;
@@ -493,9 +525,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private int _commentsPage;
 
-    // Maps comment id -> node across paginated loads so replies arriving on a
-    // later page can find their parent built on an earlier one.
-    private Dictionary<long, CommentNodeItem> _commentNodeIndex = [];
+    // Node index and in-flight media tracking moved to CommentService.
 
     [ObservableProperty]
     private int _commentsTotalPages;
@@ -556,7 +586,26 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        _ = LoadEpisodesForSeasonAsync(value.Value);
+        PopulateEpisodes(value.Value);
+    }
+
+    partial void OnSelectedTranslationChanged(TranslationItem? value)
+    {
+        if (value is null ||
+            _media is null ||
+            !IsSeries ||
+            !CanWatchDetails ||
+            _suppressTranslationChange)
+        {
+            return;
+        }
+
+        if (_loadedSeasons is not null && _loadedSeasonsTranslatorId == value.Id)
+        {
+            return;
+        }
+
+        _ = RefreshSeriesInfoForTranslationAsync(value);
     }
 
     [RelayCommand]
@@ -876,6 +925,23 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
+    private async Task SetGraphicsAdapterAsync(string? value)
+    {
+        if (!Enum.TryParse<GraphicsAdapterPreference>(
+                value,
+                ignoreCase: true,
+                out var preference))
+        {
+            return;
+        }
+
+        SelectedGraphicsAdapter = preference;
+        _settings.GraphicsAdapter = preference;
+        await _settingsService.SaveAsync(_settings);
+        StatusMessage = GraphicsAdapterService.DescribeApplyOutcome(preference, _logger);
+    }
+
+    [RelayCommand]
     private void OpenLogsFolder()
     {
         try
@@ -1105,6 +1171,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             _rezka.AttachAuth(_auth);
             SelectedTheme = _settings.Theme;
             _themes.Apply(SelectedTheme);
+            SelectedGraphicsAdapter = _settings.GraphicsAdapter;
+            GraphicsAdapterService.Apply(_settings.GraphicsAdapter, _logger);
             await RebuildRecentAsync(cancellationToken);
 
             StartupMessage = "Проверяем доступные зеркала";
@@ -1243,6 +1311,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             _media = null;
             _resolvedStream = null;
             _resolvedSelectionKey = null;
+            _loadedSeasons = null;
+            _loadedSeasonsTranslatorId = 0;
             Translations.Clear();
             Seasons.Clear();
             Episodes.Clear();
@@ -1504,54 +1574,27 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 translator.IsPremium));
         }
 
+        _suppressTranslationChange = true;
         SelectedTranslation =
             Translations.FirstOrDefault(item =>
                 !item.IsPremium || _media.IsPremiumAccount)
             ?? Translations.FirstOrDefault();
+        _suppressTranslationChange = false;
 
         Seasons.Clear();
         Episodes.Clear();
-        var commentsTask = LoadCommentsPageAsync(
-            1,
-            replace: true,
-            cancellationToken);
-        if (IsSeries && CanWatchDetails)
+        var commentsTask = LoadCommentsPageAsync(1, replace: true);
+        if (IsSeries && CanWatchDetails && SelectedTranslation is { } translation)
         {
-            var media = _media;
-            var seasons = await LoadSeriesInfoResilientAsync(
-                media,
+            var seasons = await LoadSeriesInfoForTranslationAsync(
+                _media,
+                translation,
                 cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
-            // A null result means every translation is Premium-protected: keep
-            // the metadata visible but leave the season/episode pickers empty
-            // instead of failing the whole details view.
-            if (seasons is not null)
-            {
-                foreach (var season in seasons)
-                {
-                    Seasons.Add(new ChoiceItem(season.Number, season.Title));
-                }
-
-                _suppressSeasonChange = true;
-                SelectedSeason = Seasons.FirstOrDefault();
-                _suppressSeasonChange = false;
-                if (SelectedSeason is { } selectedSeason)
-                {
-                    var season = seasons.FirstOrDefault(item =>
-                        item.Number == selectedSeason.Value);
-                    if (season is not null)
-                    {
-                        foreach (var episode in season.Episodes)
-                        {
-                            Episodes.Add(new ChoiceItem(
-                                episode.Number,
-                                episode.Title));
-                        }
-                    }
-
-                    SelectedEpisode = Episodes.FirstOrDefault();
-                }
-            }
+            // A null result means the chosen translation is Premium-protected
+            // or has no series data: keep the metadata visible but leave the
+            // season/episode pickers empty instead of failing the details view.
+            ApplyLoadedSeasons(seasons, translation.Id, null, null);
         }
 
         await commentsTask;
@@ -1588,76 +1631,144 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         exception is HttpRequestException or HttpException or IOException or TimeoutException;
 
     /// <summary>
-    /// Loads seasons and episodes for the details view, tolerating translators
-    /// the website marks as Premium-protected. The library's all-translators
-    /// <see cref="Media.GetEpisodesInfoAsync(CancellationToken)"/> aggregates
-    /// every translator with <c>Task.WhenAll</c>, so a single translator whose
-    /// response carries <c>premium_content</c> aborts the whole load with
-    /// <see cref="PremiumRequiredException"/> even when free translations exist.
-    /// For listing seasons/episodes we treat that as soft: fall back to the
-    /// non-premium translators one by one and merge what they provide.
+    /// Loads the season/episode structure for the single translator the user
+    /// picked. HDRezka security flags accounts that pre-fetch series info for
+    /// every available translator, and the website itself only requests the
+    /// chosen one — so we mirror that instead of the previous all-translators
+    /// aggregation.
     /// </summary>
     /// <returns>
-    /// Seasons merged across non-premium translators, or <see langword="null"/>
-    /// when none of them offered any data (genuinely Premium-only content).
+    /// Seasons for the translator, or <see langword="null"/> when it offered
+    /// no data or is Premium-protected.
     /// </returns>
-    private static async Task<IReadOnlyList<Season>?> LoadSeriesInfoResilientAsync(
+    private static async Task<IReadOnlyList<Season>?> LoadSeriesInfoForTranslationAsync(
         Media media,
+        TranslationItem translation,
         CancellationToken cancellationToken)
     {
         try
         {
-            return await media.GetEpisodesInfoAsync(cancellationToken)
-                .ConfigureAwait(false);
+            var series = await media.GetSeriesInfoAsync(
+                translation.Id.ToString(CultureInfo.InvariantCulture),
+                cancellationToken).ConfigureAwait(false);
+            return series is null
+                ? null
+                : MergeSeriesInfo(new[]
+                {
+                    new Dictionary<int, SeriesInfo> { [translation.Id] = series },
+                });
         }
-        catch (PremiumRequiredException) when (
-            media.TranslationOptions.Count != 0)
+        catch (PremiumRequiredException)
         {
-            // Aggregated load was vetoed by a Premium-marked translator.
-            // Rebuild the season/episode list from the remaining translators.
-        }
-
-        var candidates = media.TranslationOptions
-            .Where(translator => !translator.IsPremium || media.IsPremiumAccount)
-            .ToList();
-        if (candidates.Count == 0)
-        {
+            // The chosen translator is Premium-locked: leave the pickers empty
+            // instead of probing every other translator.
             return null;
         }
+    }
 
-        var perTranslator = new List<IReadOnlyDictionary<int, SeriesInfo>>();
-        foreach (var translator in candidates)
+    private void ApplyLoadedSeasons(
+        IReadOnlyList<Season>? seasons,
+        int translatorId,
+        int? preferredSeason,
+        int? preferredEpisode)
+    {
+        _loadedSeasons = seasons;
+        _loadedSeasonsTranslatorId = translatorId;
+
+        Seasons.Clear();
+        Episodes.Clear();
+        if (seasons is null || seasons.Count == 0)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            try
+            _suppressSeasonChange = true;
+            SelectedSeason = null;
+            _suppressSeasonChange = false;
+            SelectedEpisode = null;
+            return;
+        }
+
+        foreach (var season in seasons)
+        {
+            Seasons.Add(new ChoiceItem(season.Number, season.Title));
+        }
+
+        var target = preferredSeason is { } seasonNumber &&
+            Seasons.FirstOrDefault(item => item.Value == seasonNumber) is { } keptSeason
+                ? keptSeason
+                : Seasons.FirstOrDefault();
+
+        _suppressSeasonChange = true;
+        SelectedSeason = target;
+        _suppressSeasonChange = false;
+        if (target is not null)
+        {
+            PopulateEpisodes(target.Value, preferredEpisode);
+        }
+    }
+
+    private void PopulateEpisodes(int seasonNumber, int? preferredEpisode = null)
+    {
+        Episodes.Clear();
+        var season = _loadedSeasons?.FirstOrDefault(item => item.Number == seasonNumber);
+        if (season is not null)
+        {
+            foreach (var episode in season.Episodes)
             {
-                var series = await media.GetSeriesInfoAsync(
-                    translator.Id.ToString(CultureInfo.InvariantCulture),
-                    cancellationToken).ConfigureAwait(false);
-                if (series is not null)
-                {
-                    perTranslator.Add(new Dictionary<int, SeriesInfo>
-                    {
-                        [translator.Id] = series,
-                    });
-                }
-            }
-            catch (PremiumRequiredException)
-            {
-                // This translator is Premium-locked too; skip it and keep going.
+                Episodes.Add(new ChoiceItem(episode.Number, episode.Title));
             }
         }
 
-        return perTranslator.Count == 0
-            ? null
-            : MergeSeriesInfo(perTranslator);
+        SelectedEpisode = preferredEpisode is { } episodeNumber &&
+            Episodes.FirstOrDefault(item => item.Value == episodeNumber) is { } kept
+                ? kept
+                : Episodes.FirstOrDefault();
+    }
+
+    private async Task RefreshSeriesInfoForTranslationAsync(
+        TranslationItem translation,
+        CancellationToken cancellationToken = default)
+    {
+        if (_media is not { } media)
+        {
+            return;
+        }
+
+        try
+        {
+            var seasons = await LoadSeriesInfoForTranslationAsync(
+                media,
+                translation,
+                cancellationToken);
+            if (!ReferenceEquals(_media, media) ||
+                SelectedTranslation?.Id != translation.Id)
+            {
+                return;
+            }
+
+            if (seasons is null && translation.IsPremium && !media.IsPremiumAccount)
+            {
+                StatusMessage = $"Перевод «{translation.Name}» требует Premium";
+            }
+
+            ApplyLoadedSeasons(
+                seasons,
+                translation.Id,
+                SelectedSeason?.Value,
+                SelectedEpisode?.Value);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = ToUserMessage(exception);
+        }
     }
 
     /// <summary>
     /// Merges per-translator season/episode maps into a single ordered list,
     /// mirroring how the library combines translations across translators.
-    /// Extracted from <see cref="LoadSeriesInfoResilientAsync"/> so the merge
-    /// logic can be unit-tested without network access.
+    /// Extracted from <see cref="LoadSeriesInfoForTranslationAsync"/> so the
+    /// merge logic can be unit-tested without network access.
     /// </summary>
     internal static IReadOnlyList<Season> MergeSeriesInfo(
         IReadOnlyList<IReadOnlyDictionary<int, SeriesInfo>> sources)
@@ -1778,78 +1889,60 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         ReconcileSimpleCollection(
             DetailsGenres,
             metadata.Genres.Select(item => item.Name));
-        ReconcileSimpleCollection(
-            DetailsCollections,
-            metadata.Collections.Select(item => item.Name));
-        ReconcileSimpleCollection(
-            DetailsRankings,
-            metadata.Rankings.Select(item => item.Name));
-        ReconcileSimpleCollection(
-            DetailsOtherParts,
-            metadata.OtherParts.Select(item => item.Name));
-        RebuildDetailGroups();
+        var collections = metadata.Collections.Select(item => item.Name).Where(v => !string.IsNullOrWhiteSpace(v)).ToArray();
+        var rankings = metadata.Rankings.Select(item => item.Name).Where(v => !string.IsNullOrWhiteSpace(v)).ToArray();
+        var otherParts = metadata.OtherParts.Select(item => item.Name).Where(v => !string.IsNullOrWhiteSpace(v)).ToArray();
+        ReconcileSimpleCollection(DetailsCollections, collections);
+        ReconcileSimpleCollection(DetailsRankings, rankings);
+        ReconcileSimpleCollection(DetailsOtherParts, otherParts);
+        var (groups, groupColumnCount) = DetailsMetadataMapper.BuildDetailGroups(
+            collections,
+            rankings,
+            otherParts);
+        DetailsGroups.Clear();
+        foreach (var group in groups)
+        {
+            DetailsGroups.Add(group);
+        }
+        DetailsGroupColumnCount = groupColumnCount;
+        HasDetailGroups = DetailsGroups.Count > 0;
 
         DetailsFacts.Clear();
-        AddDetailFact("Дата выхода", metadata.ReleaseDate?.ToString("dd MMMM yyyy"));
-        AddCountriesFact(metadata.Countries);
-        AddDetailFact("Жанры", string.Join(", ", metadata.Genres.Select(item => item.Name)));
-        AddAgeFact(metadata.AgeRating);
-        AddDetailFact(
-            "Время",
-            metadata.DurationSeconds is { } seconds
-                ? FormatDuration(TimeSpan.FromSeconds(seconds))
-                : null);
+        foreach (var fact in DetailsMetadataMapper.BuildFacts(metadata))
+        {
+            DetailsFacts.Add(fact);
+        }
 
         DetailsDirectors.Clear();
-        foreach (var person in metadata.Directors)
+        foreach (var person in DetailsMetadataMapper.BuildDirectors(metadata, mediaUrl, _images))
         {
-            DetailsDirectors.Add(CreatePersonCard(person, mediaUrl));
+            DetailsDirectors.Add(person);
         }
 
         DetailsCast.Clear();
-        foreach (var person in metadata.Cast.Take(18))
+        foreach (var person in DetailsMetadataMapper.BuildCast(metadata, mediaUrl, _images))
         {
-            DetailsCast.Add(CreatePersonCard(person, mediaUrl));
+            DetailsCast.Add(person);
         }
 
         DetailsExternalRatings.Clear();
-        foreach (var ratingItem in metadata.ExternalRatings)
+        foreach (var externalRating in DetailsMetadataMapper.BuildExternalRatings(metadata))
         {
-            Uri.TryCreate(ratingItem.Url, UriKind.Absolute, out var ratingUrl);
-            DetailsExternalRatings.Add(new ExternalRatingItem(
-                ratingItem.Source,
-                ratingItem.Value?.ToString("0.0") ?? "—",
-                ratingItem.Votes is { } sourceVotes
-                    ? $"{sourceVotes:N0} оценок"
-                    : string.Empty,
-                ratingUrl));
+            DetailsExternalRatings.Add(externalRating);
         }
 
         DetailsSchedule.Clear();
-        foreach (var item in metadata.Schedule.Take(16))
+        foreach (var schedule in DetailsMetadataMapper.BuildSchedule(metadata))
         {
-            DetailsSchedule.Add(new ScheduleCardItem(
-                $"{item.Season} сезон · {item.Episode} серия",
-                item.Title ?? item.OriginalTitle ?? "Без названия",
-                item.ReleaseDate?.ToString("dd.MM.yyyy") ?? "Дата не указана",
-                item.IsAvailable,
-                item.IsWatched));
+            DetailsSchedule.Add(schedule);
         }
 
         DetailsRecommendations.Clear();
-        foreach (var item in metadata.Recommendations.Take(12))
+        foreach (var card in DetailsMetadataMapper.BuildRecommendations(
+                     metadata,
+                     (title, url, image, category) => CreateCard(title, url, image, category)))
         {
-            if (!Uri.TryCreate(item.Url, UriKind.Absolute, out var recommendationUrl))
-            {
-                continue;
-            }
-
-            Uri.TryCreate(item.ImageUrl, UriKind.Absolute, out var recommendationImage);
-            DetailsRecommendations.Add(CreateCard(
-                item.Title,
-                recommendationUrl,
-                recommendationImage,
-                item.Category));
+            DetailsRecommendations.Add(card);
         }
     }
 
@@ -1997,87 +2090,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
-    private PersonCardItem CreatePersonCard(CachedPerson person, Uri? referer)
-    {
-        Uri.TryCreate(person.ImageUrl, UriKind.Absolute, out var imageUrl);
-        return new PersonCardItem(
-            person.Name,
-            person.Job,
-            _images.Defer(imageUrl, referer, ImageDecodeSize.Avatar));
-    }
-
-    private void AddDetailFact(string label, string? value)
-    {
-        if (!string.IsNullOrWhiteSpace(value))
-        {
-            DetailsFacts.Add(new DetailFactItem(label, value));
-        }
-    }
-
-    private void AddCountriesFact(IReadOnlyList<CachedNamedLink> countries)
-    {
-        if (countries.Count == 0)
-        {
-            return;
-        }
-
-        var countryItems = countries
-            .Select((country, index) => CountryFlagAssets.Create(
-                country,
-                index < countries.Count - 1))
-            .ToArray();
-        DetailsFacts.Add(new DetailFactItem(
-            "Страны",
-            string.Join(", ", countryItems.Select(item => item.Name)),
-            countryItems));
-    }
-
-    private void AddAgeFact(string? ageRating)
-    {
-        if (string.IsNullOrWhiteSpace(ageRating))
-        {
-            return;
-        }
-
-        var icon = AgeRatingAssets.Get(ageRating);
-        DetailsFacts.Add(icon is null
-            ? new DetailFactItem("Возраст", ageRating)
-            : new DetailFactItem("Возраст", ageRating, AgeIcon: icon));
-    }
-
-    private void RebuildDetailGroups()
-    {
-        var groups = new[]
-        {
-            (Title: "Коллекции", Items: (IReadOnlyList<string>)DetailsCollections.ToArray()),
-            (Title: "Место в подборках", Items: (IReadOnlyList<string>)DetailsRankings.ToArray()),
-            (Title: "Другие части", Items: (IReadOnlyList<string>)DetailsOtherParts.ToArray())
-        }.Where(group => group.Items.Count > 0).ToArray();
-
-        DetailsGroups.Clear();
-        DetailsGroupColumnCount = Math.Max(groups.Length, 1);
-        var innerColumnCount = groups.Length switch
-        {
-            1 => 3,
-            2 => 2,
-            _ => 1
-        };
-
-        foreach (var group in groups)
-        {
-            DetailsGroups.Add(new DetailGroupCardItem(
-                group.Title,
-                group.Items,
-                innerColumnCount));
-        }
-
-        HasDetailGroups = DetailsGroups.Count > 0;
-    }
-
-    private static string FormatDuration(TimeSpan duration) =>
-        duration.TotalHours >= 1
-            ? $"{(int)duration.TotalHours} ч {duration.Minutes} мин"
-            : $"{duration.Minutes} мин";
+    // Person/fact/rating/schedule/group mapping moved to DetailsMetadataMapper.
 
     private static void ReconcileSimpleCollection(
         ObservableCollection<string> target,
@@ -2098,67 +2111,27 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        await LoadCommentsPageAsync(
-            CommentsPage + 1,
-            replace: false,
-            _lifetimeCancellation.Token);
+        await LoadCommentsPageAsync(CommentsPage + 1, replace: false);
     }
 
-    private async Task LoadCommentsPageAsync(
-        int page,
-        bool replace,
-        CancellationToken cancellationToken)
+    /// <summary>
+    /// Delegates to <see cref="CommentService"/> and applies the resulting
+    /// batch to the UI collections owned by this view-model.
+    /// </summary>
+    private async Task LoadCommentsPageAsync(int page, bool replace)
     {
-        if (_media is null || IsCommentsLoading)
-        {
-            return;
-        }
-
-        var media = _media;
-        IsCommentsLoading = true;
         try
         {
-            var result = await Task.Run(
-                () => _rezka.GetCommentsAsync(media, page, cancellationToken),
-                cancellationToken);
-            cancellationToken.ThrowIfCancellationRequested();
-            if (!ReferenceEquals(_media, media))
-            {
-                return;
-            }
-
-            if (replace)
-            {
-                DetailsComments.Clear();
-                _commentNodeIndex = [];
-            }
-
-            var requestVersion = _detailsRequestVersion;
-            var newNodes = BuildCommentTree(
-                result.Items,
-                comment =>
-                {
-                    var node = CreateCommentNode(comment, media);
-                    return (comment.Id, comment.ParentId, node);
-                },
-                _commentNodeIndex);
-            if (requestVersion != _detailsRequestVersion)
-            {
-                return;
-            }
-
-            foreach (var node in newNodes)
-            {
-                DetailsComments.Add(node);
-            }
-
-            foreach (var node in _commentNodeIndex.Values)
-            {
-                node.NotifyChildrenChanged();
-            }
-
-            CommentsPage = result.Page;
-            CommentsTotalPages = result.TotalPages;
+            IsCommentsLoading = true;
+            var batch = await _comments.LoadPageAsync(
+                page,
+                replace,
+                _lifetimeCancellation.Token);
+            ApplyCommentBatch(batch);
+        }
+        catch (OperationCanceledException)
+        {
+            // The user left the title before the page arrived.
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -2166,115 +2139,29 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
         finally
         {
-            IsCommentsLoading = false;
+            IsCommentsLoading = _comments.IsLoading;
         }
     }
 
-    private CommentNodeItem CreateCommentNode(CachedComment comment, Media media)
+    private void ApplyCommentBatch(CommentBatch? batch)
     {
-        Uri.TryCreate(comment.AvatarUrl, UriKind.Absolute, out var avatarUrl);
-        return new CommentNodeItem(
-            comment.Id,
-            comment.ParentId,
-            comment.Depth,
-            comment.Author,
-            comment.DateLabel,
-            comment.Text,
-            comment.Likes,
-            _images.Defer(avatarUrl, media.Url, ImageDecodeSize.Avatar));
-    }
-
-    /// <summary>
-    /// Rebuilds a parent/child comment tree from the flat, in-nesting-order
-    /// list returned by the website, linking replies through
-    /// <see cref="CommentNodeItem.ParentId"/>. Existing nodes in
-    /// <paramref name="existingIndex"/> are reused across paginated loads so a
-    /// reply arriving on a later page attaches to the parent built earlier.
-    /// Replies whose parent has not been seen yet are treated as roots rather
-    /// than dropped, matching how the flat list degrades when pages are split.
-    /// </summary>
-    /// <typeparam name="TComment">
-    /// Flat source comment type (library <see cref="Comment"/> or cached).
-    /// </typeparam>
-    /// <param name="factory">
-    /// Builds a fresh <see cref="CommentNodeItem"/> and exposes the source
-    /// id/parentId for one comment without side effects.
-    /// </param>
-    /// <param name="existingIndex">
-    /// Shared id -> node map, mutated in place to include the new nodes.
-    /// </param>
-    /// <returns>
-    /// Only the roots produced by this batch (parent missing or already known).
-    /// </returns>
-    internal static IReadOnlyList<CommentNodeItem> BuildCommentTree<TComment>(
-        IReadOnlyList<TComment> comments,
-        Func<TComment, (long Id, long? ParentId, CommentNodeItem Node)> factory,
-        Dictionary<long, CommentNodeItem> existingIndex)
-    {
-        var built = new List<(long Id, long? ParentId, CommentNodeItem Node)>(comments.Count);
-        var batchNodes = new Dictionary<long, CommentNodeItem>();
-        foreach (var comment in comments)
-        {
-            var entry = factory(comment);
-            built.Add(entry);
-            batchNodes[entry.Id] = entry.Node;
-        }
-
-        var roots = new List<CommentNodeItem>();
-        foreach (var (id, parentId, node) in built)
-        {
-            if (parentId is { } parent &&
-                batchNodes.TryGetValue(parent, out var batchParent))
-            {
-                batchParent.Children.Add(node);
-            }
-            else if (parentId is { } existingParent &&
-                     existingIndex.TryGetValue(existingParent, out var knownParent))
-            {
-                knownParent.Children.Add(node);
-            }
-            else
-            {
-                roots.Add(node);
-            }
-
-            existingIndex[id] = node;
-        }
-
-        return roots;
-    }
-
-    private async Task LoadEpisodesForSeasonAsync(
-        int seasonNumber,
-        CancellationToken cancellationToken = default)
-    {
-        if (_media is null)
+        if (batch is not { } result || result.Superseded)
         {
             return;
         }
 
-        try
+        if (result.ReplacedAll)
         {
-            var media = _media;
-            var seasons = await LoadSeriesInfoResilientAsync(
-                media,
-                cancellationToken);
-            var season = seasons?.FirstOrDefault(item => item.Number == seasonNumber);
-            Episodes.Clear();
-            if (season is not null)
-            {
-                foreach (var episode in season.Episodes)
-                {
-                    Episodes.Add(new ChoiceItem(episode.Number, episode.Title));
-                }
-            }
+            DetailsComments.Clear();
+        }
 
-            SelectedEpisode = Episodes.FirstOrDefault();
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
+        foreach (var node in result.NewNodes)
         {
-            StatusMessage = ToUserMessage(exception);
+            DetailsComments.Add(node);
         }
+
+        CommentsPage = result.Page;
+        CommentsTotalPages = result.TotalPages;
     }
 
     private MediaCardItem CreateCard(

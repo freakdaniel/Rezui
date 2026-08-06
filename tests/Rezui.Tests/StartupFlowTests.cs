@@ -15,28 +15,28 @@ public sealed class StartupFlowTests
     [AvaloniaFact]
     public async Task StartupShowsOnlyLoadingThenOnlyLoginWhenSessionIsMissing()
     {
-        using var fixture = new StartupFixture();
+        using var fixture = new TestStartupFixture();
         var viewModel = fixture.CreateViewModel();
         var window = new MainWindow
         {
             DataContext = viewModel
         };
         var loading = Assert.IsType<Grid>(
-            window.FindControl<Grid>("StartupLoadingContent"));
+            window.FindNamed<Grid>("StartupLoadingContent"));
         var wizard = Assert.IsType<StackPanel>(
-            window.FindControl<StackPanel>("StartupWizardContent"));
+            window.FindNamed<StackPanel>("StartupWizardContent"));
         var overlay = Assert.IsType<Grid>(
-            window.FindControl<Grid>("StartupOverlay"));
+            window.FindNamed<Grid>("StartupOverlay"));
         var brand = Assert.IsType<Grid>(
-            window.FindControl<Grid>("LoginBrandComposition"));
+            window.FindNamed<Grid>("LoginBrandComposition"));
         var loginFox = Assert.IsType<Image>(
-            window.FindControl<Image>("LoginFoxLogo"));
+            window.FindNamed<Image>("LoginFoxLogo"));
         var loadingLogo = Assert.IsType<Image>(
-            window.FindControl<Image>("StartupLoadingLogo"));
+            window.FindNamed<Image>("StartupLoadingLogo"));
         var mirrorAnchor = Assert.IsType<Button>(
-            window.FindControl<Button>("MirrorAnchorButton"));
+            window.FindNamed<Button>("MirrorAnchorButton"));
         var startupSpinner = Assert.IsType<TextBlock>(
-            window.FindControl<TextBlock>("StartupSpinner"));
+            window.FindNamed<TextBlock>("StartupSpinner"));
 
         window.Show();
         try
@@ -137,7 +137,7 @@ public sealed class StartupFlowTests
     [Fact]
     public async Task StartupUsesDefaultMirrorAndRequestsLoginWhenSettingsAreMissing()
     {
-        using var fixture = new StartupFixture();
+        using var fixture = new TestStartupFixture();
         var viewModel = fixture.CreateViewModel();
 
         await viewModel.Initialization;
@@ -155,7 +155,7 @@ public sealed class StartupFlowTests
     [Fact]
     public async Task StartupSelectsAvailableMirrorWithLowestLatency()
     {
-        using var fixture = new StartupFixture();
+        using var fixture = new TestStartupFixture();
         fixture.Mirrors.Latencies[RezkaMirrors.Primary] = 45;
         fixture.Mirrors.Latencies["https://rezka.fi"] = 9;
         fixture.Mirrors.Latencies["https://hdrezka.cm"] = 28;
@@ -209,7 +209,7 @@ public sealed class StartupFlowTests
     [Fact]
     public async Task StartupBlocksLoginWhenEveryMirrorIsUnavailable()
     {
-        using var fixture = new StartupFixture();
+        using var fixture = new TestStartupFixture();
         fixture.Mirrors.AllUnavailable = true;
         var viewModel = fixture.CreateViewModel();
 
@@ -223,7 +223,7 @@ public sealed class StartupFlowTests
     [Fact]
     public async Task MirrorWizardMovesForwardAndBackFromTheLoginStep()
     {
-        using var fixture = new StartupFixture();
+        using var fixture = new TestStartupFixture();
         var viewModel = fixture.CreateViewModel();
         await viewModel.Initialization;
 
@@ -244,7 +244,7 @@ public sealed class StartupFlowTests
     [Fact]
     public async Task RapidOppositeWizardClicksCannotInterruptActiveTransition()
     {
-        using var fixture = new StartupFixture();
+        using var fixture = new TestStartupFixture();
         var viewModel = fixture.CreateViewModel();
         await viewModel.Initialization;
 
@@ -267,16 +267,16 @@ public sealed class StartupFlowTests
     [AvaloniaFact]
     public async Task RepeatedWizardNavigationLeavesBothPagesFullyOpaque()
     {
-        using var fixture = new StartupFixture();
+        using var fixture = new TestStartupFixture();
         var viewModel = fixture.CreateViewModel();
         var window = new MainWindow
         {
             DataContext = viewModel
         };
         var loginPage = Assert.IsType<Grid>(
-            window.FindControl<Grid>("LoginWizardPage"));
+            window.FindNamed<Grid>("LoginWizardPage"));
         var mirrorPage = Assert.IsType<Grid>(
-            window.FindControl<Grid>("MirrorWizardPage"));
+            window.FindNamed<Grid>("MirrorWizardPage"));
 
         window.Show();
         try
@@ -307,7 +307,7 @@ public sealed class StartupFlowTests
     [Fact]
     public async Task ChangingMirrorSelectionKeepsRowsAliveForStateTransitions()
     {
-        using var fixture = new StartupFixture();
+        using var fixture = new TestStartupFixture();
         var viewModel = fixture.CreateViewModel();
         await viewModel.Initialization;
         var first = viewModel.MirrorStatuses[0];
@@ -325,7 +325,7 @@ public sealed class StartupFlowTests
     [Fact]
     public async Task MirrorWizardCannotOpenWhileConnectionCheckIsRunning()
     {
-        using var fixture = new StartupFixture();
+        using var fixture = new TestStartupFixture();
         var viewModel = fixture.CreateViewModel();
         await viewModel.Initialization;
         viewModel.IsMirrorCheckRunning = true;
@@ -338,7 +338,7 @@ public sealed class StartupFlowTests
     [Fact]
     public async Task InvalidLoginUsesStatusAreaWithoutChangingPageCopy()
     {
-        using var fixture = new StartupFixture();
+        using var fixture = new TestStartupFixture();
         var viewModel = fixture.CreateViewModel();
         await viewModel.Initialization;
         var title = viewModel.StartupTitle;
@@ -358,7 +358,7 @@ public sealed class StartupFlowTests
     [Fact]
     public async Task AvailableCustomMirrorIsUsedAndPersisted()
     {
-        using var fixture = new StartupFixture();
+        using var fixture = new TestStartupFixture();
         fixture.Mirrors.AllUnavailable = true;
         var viewModel = fixture.CreateViewModel();
         await viewModel.Initialization;
@@ -381,7 +381,7 @@ public sealed class StartupFlowTests
     [Fact]
     public async Task UnavailableCustomMirrorIsNotAddedOrSelected()
     {
-        using var fixture = new StartupFixture();
+        using var fixture = new TestStartupFixture();
         fixture.Mirrors.AllUnavailable = true;
         var viewModel = fixture.CreateViewModel();
         await viewModel.Initialization;
@@ -404,7 +404,7 @@ public sealed class StartupFlowTests
     [Fact]
     public async Task ReachableNonRezkaSiteIsNotAddedOrSelected()
     {
-        using var fixture = new StartupFixture();
+        using var fixture = new TestStartupFixture();
         fixture.Mirrors.AllUnavailable = true;
         var viewModel = fixture.CreateViewModel();
         await viewModel.Initialization;
@@ -429,7 +429,7 @@ public sealed class StartupFlowTests
     [Fact]
     public async Task StartupRequiresLoginWhenSessionCookiesAreMissing()
     {
-        using var fixture = new StartupFixture();
+        using var fixture = new TestStartupFixture();
         await fixture.Settings.SaveAsync(
             new AppSettings
             {
@@ -443,94 +443,5 @@ public sealed class StartupFlowTests
         Assert.True(viewModel.IsStartupVisible);
         Assert.True(viewModel.IsStartupAuthenticationRequired);
         Assert.False(viewModel.IsShellVisible);
-    }
-
-    private sealed class StartupFixture : IDisposable
-    {
-        private readonly TemporaryDirectory _directory = new();
-        private readonly ImageCacheService _images = new();
-        private readonly PlayerViewModel _player = new();
-        private RezkaClientService? _rezka;
-        private LibrarySyncWorker? _librarySync;
-        private MainWindowViewModel? _viewModel;
-
-        public StartupFixture()
-        {
-            Settings = new SettingsService(_directory.Path);
-            Mirrors = new FakeMirrorDiscoveryService();
-        }
-
-        public SettingsService Settings { get; }
-
-        public FakeMirrorDiscoveryService Mirrors { get; }
-
-        public MainWindowViewModel CreateViewModel()
-        {
-            _rezka = new RezkaClientService(Settings);
-            _librarySync = new LibrarySyncWorker(_rezka);
-            _viewModel = new MainWindowViewModel(
-                Settings,
-                _rezka,
-                _images,
-                _player,
-                new ThemeService(),
-                _librarySync,
-                Mirrors);
-            return _viewModel;
-        }
-
-        public void Dispose()
-        {
-            _viewModel?.Dispose();
-            _librarySync?.Dispose();
-            _player.Dispose();
-            _images.Dispose();
-            _rezka?.Dispose();
-            _directory.Dispose();
-        }
-    }
-
-    public sealed class FakeMirrorDiscoveryService : IMirrorDiscoveryService
-    {
-        public Dictionary<string, long> Latencies { get; } = new(StringComparer.OrdinalIgnoreCase)
-        {
-            [RezkaMirrors.Primary] = 12,
-            ["https://rezka.fi"] = 24,
-            ["https://hdrezka.cm"] = 36
-        };
-
-        public bool AllUnavailable { get; set; }
-
-        public bool RejectRezkaValidation { get; set; }
-
-        public Task<bool> IsRezkaMirrorAsync(
-            string origin,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(!RejectRezkaValidation);
-        }
-
-        public Task<IReadOnlyList<MirrorProbeResult>> ProbeAsync(
-            IEnumerable<string> origins,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            IReadOnlyList<MirrorProbeResult> results = origins
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Select(origin =>
-                {
-                    var normalized = RezkaClientService.NormalizeOrigin(origin);
-                    var normalizedOrigin = normalized.AbsoluteUri.TrimEnd('/');
-                    var latency = Latencies.GetValueOrDefault(normalizedOrigin, 80);
-                    return new MirrorProbeResult(
-                        normalizedOrigin,
-                        normalized.Host,
-                        AllUnavailable ? null : latency,
-                        !AllUnavailable);
-                })
-                .ToArray();
-            return Task.FromResult(results);
-        }
     }
 }

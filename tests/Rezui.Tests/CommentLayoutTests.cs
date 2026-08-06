@@ -24,9 +24,8 @@ public sealed class CommentLayoutTests
         parent.Children.Add(new CommentNodeItem(2, 1, 1, "reply", "", "text", 0, DummyAvatar));
         parent.NotifyChildrenChanged();
 
-        var mainWindow = new MainWindow();
         var template = Assert.IsAssignableFrom<IDataTemplate>(
-            mainWindow.Resources["CommentNodeTemplate"]);
+            Application.Current!.FindResource("CommentNodeTemplate"));
         var comment = Assert.IsType<Grid>(template.Build(parent));
         try
         {
@@ -54,7 +53,7 @@ public sealed class CommentLayoutTests
         }
         finally
         {
-            mainWindow.Close();
+            comment.Resources.Clear();
         }
     }
 
@@ -66,9 +65,8 @@ public sealed class CommentLayoutTests
         parent.Children.Add(reply);
         parent.NotifyChildrenChanged();
 
-        var resourcesWindow = new MainWindow();
         var template = Assert.IsAssignableFrom<IDataTemplate>(
-            resourcesWindow.Resources["CommentNodeTemplate"]);
+            Application.Current!.FindResource("CommentNodeTemplate"));
         var presenter = new ContentControl
         {
             Content = parent,
@@ -138,18 +136,23 @@ public sealed class CommentLayoutTests
         finally
         {
             host.Close();
-            resourcesWindow.Close();
         }
     }
 
     [AvaloniaFact]
     public void DetailsPageDoesNotScrollFocusedControlsIntoView()
     {
-        var window = new MainWindow();
+        using var fixture = new TestStartupFixture();
+        var viewModel = fixture.CreateViewModel();
+        viewModel.IsShellVisible = true;
+        viewModel.IsDetailsVisible = true;
+        var window = new MainWindow { DataContext = viewModel };
         try
         {
+            window.Show();
+            window.UpdateLayout();
             var details = Assert.IsType<ScrollViewer>(
-                window.FindControl<ScrollViewer>("DetailsScrollViewer"));
+                window.FindNamed<ScrollViewer>("DetailsScrollViewer"));
             Assert.False(details.BringIntoViewOnFocusChange);
         }
         finally
@@ -161,9 +164,15 @@ public sealed class CommentLayoutTests
     [AvaloniaFact]
     public void DetailsGridsDoNotRegisterVirtualizedScrollAnchors()
     {
-        var window = new MainWindow();
+        using var fixture = new TestStartupFixture();
+        var viewModel = fixture.CreateViewModel();
+        viewModel.IsShellVisible = true;
+        viewModel.IsDetailsVisible = true;
+        var window = new MainWindow { DataContext = viewModel };
         try
         {
+            window.Show();
+            window.UpdateLayout();
             var listNames = new[]
             {
                 "DetailsDirectorsList",
@@ -175,7 +184,7 @@ public sealed class CommentLayoutTests
             foreach (var name in listNames)
             {
                 var list = Assert.IsAssignableFrom<Control>(
-                    window.FindControl<Control>(name));
+                    window.FindNamed<Control>(name));
                 Assert.IsType<ItemsControl>(list);
             }
         }

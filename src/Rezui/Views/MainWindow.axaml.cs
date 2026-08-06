@@ -2,15 +2,20 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Media;
 using Avalonia.Rendering;
 using Avalonia.VisualTree;
-using Rezui.Models;
 using Rezui.Services;
 using Rezui.ViewModels;
 
 namespace Rezui.Views;
 
+/// <summary>
+/// Application shell. Owns the cross-page chrome (top island, popups, startup
+/// overlay host, busy indicator) plus the input plumbing that has to live at
+/// window scope: smooth/auto-scroll for every <c>smooth-scroll</c> viewer,
+/// outside-click dismissal for the popups, focus handling and the optional
+/// performance overlays.
+/// </summary>
 public sealed partial class MainWindow : Window
 {
     private const RendererDebugOverlays PerformanceOverlays =
@@ -27,7 +32,6 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        DetailsScrollViewer.PropertyChanged += OnDetailsScrollViewerPropertyChanged;
         Activated += OnActivated;
         Deactivated += OnDeactivated;
         Opened += OnOpened;
@@ -39,15 +43,6 @@ public sealed partial class MainWindow : Window
             PointerWheelChangedEvent,
             OnPreviewPointerWheelChanged,
             RoutingStrategies.Tunnel);
-    }
-
-    private void HomeCard_OnPointerEntered(object? sender, PointerEventArgs eventArgs)
-    {
-        if (sender is Control { DataContext: HomeMediaCardItem card } &&
-            card.LoadMetadataCommand.CanExecute(null))
-        {
-            card.LoadMetadataCommand.Execute(null);
-        }
     }
 
     private void OnPreviewPointerWheelChanged(
@@ -73,27 +68,6 @@ public sealed partial class MainWindow : Window
         var state = GetSmoothScrollState(scrollViewer);
         state.AddWheelDelta(eventArgs.Delta.Y);
         eventArgs.Handled = true;
-    }
-
-    private void OnDetailsScrollViewerPropertyChanged(
-        object? sender,
-        AvaloniaPropertyChangedEventArgs eventArgs)
-    {
-        if (eventArgs.Property != Visual.IsVisibleProperty ||
-            !eventArgs.GetNewValue<bool>() ||
-            sender is not ScrollViewer scrollViewer)
-        {
-            return;
-        }
-
-        if (_smoothScrollStates.TryGetValue(scrollViewer, out var state))
-        {
-            state.ResetToTop();
-        }
-        else
-        {
-            scrollViewer.Offset = new Vector(0, 0);
-        }
     }
 
     private void OnPreviewKeyDown(object? sender, KeyEventArgs eventArgs)
@@ -153,7 +127,8 @@ public sealed partial class MainWindow : Window
             && DataContext is MainWindowViewModel viewModel)
         {
             if (viewModel.IsCategoryMenuOpen
-                && !IsWithin(source, CategoryMenuPopup)
+                && CategoryMenuPopup is { } categoryMenu
+                && !IsWithin(source, categoryMenu)
                 && !IsWithin(source, FilmsNavButton)
                 && !IsWithin(source, SeriesNavButton)
                 && !IsWithin(source, CartoonsNavButton)
@@ -163,7 +138,8 @@ public sealed partial class MainWindow : Window
             }
 
             if (viewModel.IsProfilePopupOpen
-                && !IsWithin(source, ProfilePopup)
+                && ProfilePopup is { } profilePopup
+                && !IsWithin(source, profilePopup)
                 && !IsWithin(source, ProfileAvatarButton))
             {
                 viewModel.IsProfilePopupOpen = false;
@@ -221,46 +197,6 @@ public sealed partial class MainWindow : Window
     private static bool IsWithin(Visual source, Visual container) =>
         ReferenceEquals(source, container) || container.IsVisualAncestorOf(source);
 
-    private void ContinueTitle_OnSizeChanged(object? sender, SizeChangedEventArgs eventArgs)
-    {
-        if (sender is not TextBlock title ||
-            string.IsNullOrWhiteSpace(title.Text) ||
-            eventArgs.NewSize.Width <= 0)
-        {
-            return;
-        }
-
-        const double largeFontSize = 54;
-        const double regularFontSize = 34;
-        var singleLineProbe = new TextBlock
-        {
-            Text = title.Text,
-            FontFamily = title.FontFamily,
-            FontWeight = title.FontWeight,
-            FontStyle = title.FontStyle,
-            FontStretch = title.FontStretch,
-            FontSize = largeFontSize,
-            TextWrapping = TextWrapping.NoWrap
-        };
-        singleLineProbe.Measure(
-            new Size(double.PositiveInfinity, double.PositiveInfinity));
-
-        var fitsOnOneLine =
-            singleLineProbe.DesiredSize.Width <= eventArgs.NewSize.Width;
-        var targetFontSize = fitsOnOneLine ? largeFontSize : regularFontSize;
-        if (Math.Abs(title.FontSize - targetFontSize) < 0.01)
-        {
-            return;
-        }
-
-        title.FontSize = targetFontSize;
-        title.LineHeight = fitsOnOneLine ? 60 : 40;
-        title.MaxHeight = fitsOnOneLine ? 64 : 82;
-        title.TextWrapping = fitsOnOneLine
-            ? TextWrapping.NoWrap
-            : TextWrapping.Wrap;
-    }
-
     private void OnActivated(object? sender, EventArgs eventArgs)
     {
         if (DataContext is MainWindowViewModel viewModel)
@@ -296,7 +232,6 @@ public sealed partial class MainWindow : Window
 
     private void OnClosed(object? sender, EventArgs eventArgs)
     {
-        DetailsScrollViewer.PropertyChanged -= OnDetailsScrollViewerPropertyChanged;
         Opened -= OnOpened;
         StopAutoScroll();
         foreach (var state in _smoothScrollStates.Values)
@@ -306,21 +241,6 @@ public sealed partial class MainWindow : Window
 
         _smoothScrollStates.Clear();
         _autoScrollCursor.Dispose();
-    }
-
-    private void SeekSlider_OnPointerReleased(object? sender, PointerReleasedEventArgs eventArgs)
-    {
-        if (sender is Slider slider && DataContext is MainWindowViewModel viewModel)
-        {
-            viewModel.Player.Seek((long)slider.Value);
-        }
-    }
-
-    private void FullscreenButton_OnClick(object? sender, Avalonia.Interactivity.RoutedEventArgs eventArgs)
-    {
-        WindowState = WindowState == WindowState.FullScreen
-            ? WindowState.Normal
-            : WindowState.FullScreen;
     }
 
     private sealed class SmoothScrollState : IDisposable
@@ -334,6 +254,7 @@ public sealed partial class MainWindow : Window
         private TimeSpan _lastFrameTime;
         private bool _framePending;
         private bool _isApplyingOffset;
+        private bool _resetPending;
         private bool _disposed;
 
         public SmoothScrollState(ScrollViewer scrollViewer)
@@ -369,6 +290,7 @@ public sealed partial class MainWindow : Window
                 return;
             }
 
+            _resetPending = false;
             RequestNextFrame();
         }
 
@@ -412,6 +334,12 @@ public sealed partial class MainWindow : Window
                 return;
             }
 
+            if (_resetPending)
+            {
+                _resetPending = false;
+                _lastFrameTime = default;
+            }
+
             var maximum = Math.Max(
                 0,
                 _scrollViewer.Extent.Height - _scrollViewer.Viewport.Height);
@@ -441,9 +369,23 @@ public sealed partial class MainWindow : Window
             object? sender,
             AvaloniaPropertyChangedEventArgs eventArgs)
         {
-            if (_disposed ||
-                _isApplyingOffset ||
-                eventArgs.Property != ScrollViewer.OffsetProperty)
+            if (_disposed || _isApplyingOffset)
+            {
+                return;
+            }
+
+            if (eventArgs.Property == Visual.IsVisibleProperty &&
+                eventArgs.GetNewValue<bool>())
+            {
+                // A smooth-scroll viewer (page) reappeared: snap back to the
+                // top so a previously-scrolled offset does not carry over.
+                _targetY = 0;
+                _resetPending = true;
+                SetOffset(new Vector(0, 0));
+                return;
+            }
+
+            if (eventArgs.Property != ScrollViewer.OffsetProperty)
             {
                 return;
             }

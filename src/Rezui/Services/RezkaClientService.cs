@@ -323,12 +323,39 @@ public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
         }
     }
 
+    public async Task<CachedCommentPage?> GetCachedCommentsAsync(
+        Media media,
+        int page,
+        CancellationToken cancellationToken = default)
+    {
+        if (_cache is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return await _cache.GetJsonAsync<CachedCommentPage>(
+                CacheArea.Comments,
+                GetCommentsCacheKey(media, page),
+                cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _logger.Warning(
+                exception,
+                "Comments cache read failed for {MediaPath}",
+                media.Url.AbsolutePath);
+            return null;
+        }
+    }
+
     public async Task<CachedCommentPage> GetCommentsAsync(
         Media media,
         int page,
         CancellationToken cancellationToken = default)
     {
-        var cacheKey = $"{NormalizeMediaCacheKey(media.Url)}|page:{page}";
+        var cacheKey = GetCommentsCacheKey(media, page);
         try
         {
             var comments = await media.Comments.GetPageAsync(page, cancellationToken);
@@ -385,6 +412,7 @@ public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
         if (_cache is not null)
         {
             await _cache.SaveRecentAsync(
+                GetRecentScope(),
                 new RecentMedia(
                 title,
                 url.AbsoluteUri,
@@ -397,7 +425,7 @@ public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
 
     public Task<IReadOnlyList<RecentMedia>> GetRecentAsync(
         CancellationToken cancellationToken = default) =>
-        _cache?.GetRecentAsync(20, cancellationToken)
+        _cache?.GetRecentAsync(GetRecentScope(), 20, cancellationToken)
         ?? Task.FromResult<IReadOnlyList<RecentMedia>>([]);
 
     public static Uri NormalizeOrigin(string origin)
@@ -466,14 +494,32 @@ public sealed class RezkaClientService : ILibrarySnapshotProvider, IDisposable
         }
     }
 
-    private string GetAccountCacheKey(string suffix)
+    private string GetAccountCacheKey(string suffix) =>
+        $"{GetRecentScope()}|{suffix}";
+
+    private string GetRecentScope() =>
+        BuildAccountScope(
+            Origin?.GetLeftPart(UriPartial.Authority) ?? string.Empty,
+            _auth.Cookies);
+
+    /// <summary>
+    /// Builds the per-account cache scope so user-bound data (recent history,
+    /// library) never leaks between accounts on the same machine, while the
+    /// generic areas (media metadata, comments) stay shared.
+    /// </summary>
+    public static string BuildAccountScope(
+        string originAuthority,
+        IReadOnlyDictionary<string, string> cookies)
     {
-        _auth.Cookies.TryGetValue("dle_user_id", out var userId);
-        return $"{Origin?.GetLeftPart(UriPartial.Authority)}|{userId ?? "unknown"}|{suffix}";
+        cookies.TryGetValue("dle_user_id", out var userId);
+        return $"{originAuthority}|{userId ?? "unknown"}";
     }
 
     private static string NormalizeMediaCacheKey(Uri url) =>
         url.GetLeftPart(UriPartial.Path).TrimEnd('/').ToLowerInvariant();
+
+    private static string GetCommentsCacheKey(Media media, int page) =>
+        $"{NormalizeMediaCacheKey(media.Url)}|page:{page}";
 
     internal static CachedMediaMetadata CreateMetadataSnapshot(
         Media media,

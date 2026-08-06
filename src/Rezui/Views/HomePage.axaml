@@ -1,0 +1,297 @@
+<UserControl
+    x:Class="Rezui.Views.HomePage"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="clr-namespace:Rezui.Controls"
+    xmlns:models="clr-namespace:Rezui.Models"
+    xmlns:vm="clr-namespace:Rezui.ViewModels"
+    x:DataType="vm:MainWindowViewModel">
+
+  <UserControl.Resources>
+    <!-- Inline template for the continue-watching hero; it is only ever
+         consumed by the ContentControl below, so it stays local to this page
+         rather than living in the shared templates dictionary. -->
+    <DataTemplate x:Key="ContinueWatchingHeroTemplate" x:DataType="models:ContinueWatchingHeroItem">
+      <Grid Height="352" ClipToBounds="True">
+        <Image
+            Classes="continue-hero-background"
+            Opacity="0.96"
+            RenderTransformOrigin="50%,50%"
+            Source="{Binding BackgroundImageSource.Value^}"
+            Stretch="UniformToFill">
+          <Image.RenderTransform>
+            <ScaleTransform ScaleX="1.18" ScaleY="1.18" />
+          </Image.RenderTransform>
+          <Image.CacheMode>
+            <BitmapCache RenderAtScale="0.6" />
+          </Image.CacheMode>
+          <Image.Effect>
+            <BlurEffect Radius="46" />
+          </Image.Effect>
+        </Image>
+        <Border Background="#9F111114" />
+        <Border>
+          <Border.Background>
+            <LinearGradientBrush StartPoint="0%,50%" EndPoint="100%,50%">
+              <GradientStop Color="#FA111114" Offset="0" />
+              <GradientStop Color="#E2111114" Offset="0.50" />
+              <GradientStop Color="#74111114" Offset="1" />
+            </LinearGradientBrush>
+          </Border.Background>
+        </Border>
+
+        <Grid Margin="34" ColumnDefinitions="188,*">
+          <Border
+              Width="188"
+              Height="282"
+              VerticalAlignment="Center"
+              Background="#2FFFFFFF"
+              BorderBrush="#2FFFFFFF"
+              BorderThickness="1"
+              CornerRadius="22"
+              BoxShadow="0 24 54 0 #8A000000"
+              ClipToBounds="True">
+            <Grid>
+              <TextBlock
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  Classes="symbol"
+                  Foreground="#BFFFFFFF"
+                  FontSize="30"
+                  Text="movie" />
+              <Image Source="{Binding ImageSource.Value^}" Stretch="UniformToFill" />
+            </Grid>
+          </Border>
+
+          <Grid
+              Grid.Column="1"
+              Margin="32,14,0,14"
+              RowDefinitions="Auto,*,Auto">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Spacing="8">
+                <TextBlock
+                    MaxHeight="82"
+                    Foreground="White"
+                    FontSize="40"
+                    FontWeight="SemiBold"
+                    LineHeight="46"
+                    SizeChanged="ContinueTitle_OnSizeChanged"
+                    Text="{Binding Title}"
+                    TextTrimming="CharacterEllipsis"
+                    TextWrapping="Wrap" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Border
+                      Padding="8,4"
+                      Background="#24FFFFFF"
+                      CornerRadius="999">
+                    <TextBlock
+                        Foreground="White"
+                        FontSize="11"
+                        FontWeight="SemiBold"
+                        Text="{Binding Category}" />
+                  </Border>
+                  <TextBlock
+                      VerticalAlignment="Center"
+                      Foreground="#BFFFFFFF"
+                      FontSize="12"
+                      IsVisible="{Binding HasDetails}"
+                      Text="{Binding Details}" />
+                </StackPanel>
+              </StackPanel>
+              <TextBlock
+                  Grid.Column="1"
+                  Margin="16,3,0,0"
+                  VerticalAlignment="Top"
+                  Foreground="#BFFFFFFF"
+                  FontSize="11"
+                  Text="{Binding LastViewedLabel}" />
+            </Grid>
+
+            <Grid
+                Grid.Row="2"
+                HorizontalAlignment="Left"
+                ColumnDefinitions="Auto,Auto">
+              <Button
+                  Classes="continue-hero-action"
+                  Command="{Binding OpenCommand}"
+                  AutomationProperties.Name="Продолжить просмотр">
+                <TextBlock
+                    Classes="symbol filled"
+                    FontSize="27"
+                    Text="play_arrow" />
+              </Button>
+              <StackPanel
+                  Grid.Column="1"
+                  MaxWidth="460"
+                  Margin="14,0,0,0"
+                  VerticalAlignment="Center"
+                  Spacing="2">
+                <TextBlock
+                    Foreground="#AFFFFFFF"
+                    FontSize="10"
+                    FontWeight="SemiBold"
+                    Text="Продолжить просмотр" />
+                <TextBlock
+                    MaxWidth="360"
+                    Foreground="White"
+                    FontSize="12"
+                    FontWeight="SemiBold"
+                    Text="{Binding PlaybackPosition}"
+                    TextTrimming="CharacterEllipsis" />
+              </StackPanel>
+            </Grid>
+          </Grid>
+        </Grid>
+      </Grid>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <ScrollViewer
+      Classes="smooth-scroll home-page"
+      Classes.entering="{Binding IsHomeEntering}"
+      Classes.leaving="{Binding IsHomeLeaving}"
+      IsVisible="{Binding IsHomeVisible}">
+    <StackPanel
+        MaxWidth="1240"
+        Margin="36,126,36,72"
+        HorizontalAlignment="Center"
+        Classes="home-content"
+        Spacing="42">
+      <StackPanel.RenderTransform>
+        <TransformGroup>
+          <ScaleTransform />
+          <TranslateTransform />
+        </TransformGroup>
+      </StackPanel.RenderTransform>
+      <Border
+          Height="352"
+          Background="{DynamicResource Brush.Surface.Hero}"
+          Classes="home-hero"
+          CornerRadius="24"
+          ClipToBounds="True"
+          IsVisible="{Binding HasContinueWatchingHero}">
+        <Border.RenderTransform>
+          <TransformGroup>
+            <ScaleTransform />
+            <TranslateTransform />
+          </TransformGroup>
+        </Border.RenderTransform>
+        <ContentControl
+            FontFamily="{StaticResource Font.Body}"
+            HorizontalContentAlignment="Stretch"
+            VerticalContentAlignment="Stretch"
+            Content="{Binding ContinueWatchingHero}"
+            ContentTemplate="{StaticResource ContinueWatchingHeroTemplate}" />
+      </Border>
+
+      <Border
+          MinHeight="280"
+          Padding="42"
+          Background="{DynamicResource Brush.Surface.Hero}"
+          Classes="home-hero"
+          CornerRadius="24"
+          IsVisible="{Binding !HasContinueWatchingHero}">
+        <Border.RenderTransform>
+          <TransformGroup>
+            <ScaleTransform />
+            <TranslateTransform />
+          </TransformGroup>
+        </Border.RenderTransform>
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel VerticalAlignment="Center" Spacing="10">
+            <TextBlock Classes="eyebrow" Text="ПРОДОЛЖИТЬ ПРОСМОТР" />
+            <TextBlock Classes="h1" Text="Здесь появится последний тайтл" />
+            <TextBlock
+                MaxWidth="620"
+                Classes="muted"
+                Text="Начните просмотр фильма или сериала — сохранённая позиция появится на главной."
+                TextWrapping="Wrap" />
+          </StackPanel>
+          <Button
+              Grid.Column="1"
+              VerticalAlignment="Center"
+              Classes="login-primary"
+              Command="{Binding QuickSearchCommand}"
+              CommandParameter="новинки">
+            <StackPanel Orientation="Horizontal" Spacing="7">
+              <TextBlock Classes="symbol" FontSize="18" Text="search" />
+              <TextBlock Text="Найти тайтл" />
+            </StackPanel>
+          </Button>
+        </Grid>
+      </Border>
+
+      <StackPanel Classes="home-quick" Spacing="16">
+        <StackPanel.RenderTransform><TranslateTransform /></StackPanel.RenderTransform>
+        <TextBlock Classes="h1" Text="Выбрать настроение" />
+        <ItemsControl ItemsSource="{Binding QuickSearches}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <StaticResource ResourceKey="HomeMoodCardTemplate" />
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+
+      <StackPanel Classes="home-recent" Spacing="22">
+        <StackPanel.RenderTransform><TranslateTransform /></StackPanel.RenderTransform>
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel Spacing="5">
+            <TextBlock Classes="h1" Text="Недавно открывали" />
+          </StackPanel>
+          <Button
+              Grid.Column="1"
+              Padding="12,7"
+              Classes="ghost"
+              Command="{Binding ShowLibraryCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="7">
+              <TextBlock Text="В библиотеку" />
+              <TextBlock Classes="symbol" Text="arrow_forward" />
+            </StackPanel>
+          </Button>
+        </Grid>
+        <Grid
+            x:Name="HomeRecentCollection"
+            IsVisible="{Binding HomeCollectionCards.Count}">
+          <ItemsControl
+              ItemsSource="{Binding HomeCollectionCards}"
+              PointerEntered="HomeCard_OnPointerEntered">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <controls:ReactBitsMasonryPanel
+                    MaxColumnCount="5"
+                    ColumnSpacing="18"
+                    RowSpacing="18"
+                    AnimationDuration="0:0:0.62"
+                    Stagger="0:0:0.042"
+                    EntranceDistance="86"
+                    AnimateFrom="Alternating" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <StaticResource ResourceKey="HomePosterCardTemplate" />
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </Grid>
+        <Border
+            Padding="24"
+            Classes="card"
+            IsVisible="{Binding !Recent.Count}">
+          <StackPanel Margin="0,24" HorizontalAlignment="Center" Spacing="8">
+            <TextBlock
+                HorizontalAlignment="Center"
+                Classes="symbol"
+                Foreground="{DynamicResource Brush.Text.Secondary}"
+                FontSize="30"
+                Text="history" />
+            <TextBlock Classes="h2" Text="История пока пуста" />
+            <TextBlock Classes="muted" Text="Откройте фильм, сериал или аниме — он появится здесь" />
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

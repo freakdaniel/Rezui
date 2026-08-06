@@ -153,6 +153,7 @@ public sealed class LocalCacheStore : IDisposable
     }
 
     public async Task<IReadOnlyList<RecentMedia>> GetRecentAsync(
+        string scope,
         int limit = 20,
         CancellationToken cancellationToken = default)
     {
@@ -163,9 +164,11 @@ public sealed class LocalCacheStore : IDisposable
         command.CommandText = """
             SELECT title, url, image_url, category, opened_utc
             FROM recent_media
+            WHERE scope = $scope
             ORDER BY opened_utc DESC
             LIMIT $limit;
             """;
+        command.Parameters.AddWithValue("$scope", scope);
         command.Parameters.AddWithValue("$limit", Math.Max(1, limit));
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
@@ -182,6 +185,7 @@ public sealed class LocalCacheStore : IDisposable
     }
 
     public async Task SaveRecentAsync(
+        string scope,
         RecentMedia item,
         CancellationToken cancellationToken = default)
     {
@@ -193,14 +197,15 @@ public sealed class LocalCacheStore : IDisposable
         {
             command.Transaction = transaction;
             command.CommandText = """
-                INSERT INTO recent_media (url, title, image_url, category, opened_utc)
-                VALUES ($url, $title, $image, $category, $opened)
-                ON CONFLICT(url) DO UPDATE SET
+                INSERT INTO recent_media (scope, url, title, image_url, category, opened_utc)
+                VALUES ($scope, $url, $title, $image, $category, $opened)
+                ON CONFLICT(scope, url) DO UPDATE SET
                     title = excluded.title,
                     image_url = excluded.image_url,
                     category = excluded.category,
                     opened_utc = excluded.opened_utc;
                 """;
+            command.Parameters.AddWithValue("$scope", scope);
             command.Parameters.AddWithValue("$url", item.Url);
             command.Parameters.AddWithValue("$title", item.Title);
             command.Parameters.AddWithValue("$image", item.ImageUrl);
@@ -214,10 +219,13 @@ public sealed class LocalCacheStore : IDisposable
             trim.Transaction = transaction;
             trim.CommandText = """
                 DELETE FROM recent_media
-                WHERE url NOT IN (
-                    SELECT url FROM recent_media ORDER BY opened_utc DESC LIMIT 20
+                WHERE scope = $scope AND url NOT IN (
+                    SELECT url FROM recent_media
+                    WHERE scope = $scope
+                    ORDER BY opened_utc DESC LIMIT 20
                 );
                 """;
+            trim.Parameters.AddWithValue("$scope", scope);
             await trim.ExecuteNonQueryAsync(cancellationToken);
         }
 
@@ -226,12 +234,13 @@ public sealed class LocalCacheStore : IDisposable
     }
 
     public async Task ImportRecentAsync(
+        string scope,
         IEnumerable<RecentMedia> items,
         CancellationToken cancellationToken = default)
     {
         foreach (var item in items.OrderBy(item => item.OpenedAt))
         {
-            await SaveRecentAsync(item, cancellationToken);
+            await SaveRecentAsync(scope, item, cancellationToken);
         }
     }
 
@@ -289,15 +298,18 @@ public sealed class LocalCacheStore : IDisposable
                     ON cache_entries(last_access_utc);
 
                 CREATE TABLE IF NOT EXISTS recent_media (
-                    url TEXT PRIMARY KEY,
+                    scope TEXT NOT NULL,
+                    url TEXT NOT NULL,
                     title TEXT NOT NULL,
                     image_url TEXT NOT NULL,
                     category TEXT NOT NULL,
-                    opened_utc INTEGER NOT NULL
+                    opened_utc INTEGER NOT NULL,
+                    PRIMARY KEY (scope, url)
                 ) WITHOUT ROWID;
 
                 """;
             await command.ExecuteNonQueryAsync(cancellationToken);
+            await MigrateRecentMediaScopeAsync(connection, cancellationToken);
             await PruneAsync(connection, cancellationToken);
             ApplyDatabasePermissions();
             _initialized = true;
@@ -313,6 +325,50 @@ public sealed class LocalCacheStore : IDisposable
         var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
         return connection;
+    }
+
+    /// <summary>
+    /// Rebuilds the pre-scoping <c>recent_media</c> table (url-only primary key)
+    /// into the per-account layout, carrying old rows over into the shared
+    /// empty scope so upgrades do not lose history.
+    /// </summary>
+    private static async Task MigrateRecentMediaScopeAsync(
+        SqliteConnection connection,
+        CancellationToken cancellationToken)
+    {
+        await using var probe = connection.CreateCommand();
+        probe.CommandText = """
+            SELECT COUNT(*) FROM pragma_table_info('recent_media')
+            WHERE name = 'scope';
+            """;
+        var hasScope = Convert.ToInt64(
+            await probe.ExecuteScalarAsync(cancellationToken)) > 0;
+        if (hasScope)
+        {
+            return;
+        }
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            CREATE TABLE recent_media_scoped (
+                scope TEXT NOT NULL,
+                url TEXT NOT NULL,
+                title TEXT NOT NULL,
+                image_url TEXT NOT NULL,
+                category TEXT NOT NULL,
+                opened_utc INTEGER NOT NULL,
+                PRIMARY KEY (scope, url)
+            ) WITHOUT ROWID;
+
+            INSERT INTO recent_media_scoped (
+                scope, url, title, image_url, category, opened_utc)
+            SELECT '', url, title, image_url, category, opened_utc
+            FROM recent_media;
+
+            DROP TABLE recent_media;
+            ALTER TABLE recent_media_scoped RENAME TO recent_media;
+            """;
+        await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
     private static async Task PruneAsync(
@@ -410,5 +466,22 @@ public sealed class LocalCacheStore : IDisposable
 
         _disposed = true;
         _initializationLock.Dispose();
+        // Microsoft.Data.Sqlite keeps pooled connections alive after the
+        // application closes them, which holds the database file open on
+        // Windows and prevents the temp directory from being deleted in tests.
+        // Clearing the pool for this store's connection string releases those
+        // handles so the file can be removed.
+        if (_initialized || File.Exists(DatabasePath))
+        {
+            try
+            {
+                SqliteConnection.ClearPool(new SqliteConnection(_connectionString));
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                // Clearing the pool is best-effort during shutdown; a failure
+                // here must not mask the original dispose path.
+            }
+        }
     }
 }

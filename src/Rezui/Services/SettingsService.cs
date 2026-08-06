@@ -45,12 +45,21 @@ public sealed class SettingsService
 
         try
         {
-            await using var stream = File.OpenRead(sourcePath);
-            var legacy = await JsonSerializer.DeserializeAsync<LegacyAppState>(
+            // Read and close the source file before any write. On
+            // case-insensitive filesystems (Windows, default macOS) the legacy
+            // "settings.json" and the canonical "Settings.json" resolve to the
+            // same file, so leaving the read stream open across SaveAsync's
+            // File.Move(overwrite:true) throws UnauthorizedAccessException.
+            LegacyAppState legacy;
+            await using (var stream = File.OpenRead(sourcePath))
+            {
+                legacy = await JsonSerializer.DeserializeAsync<LegacyAppState>(
                              stream,
                              JsonOptions,
                              cancellationToken)
                          ?? new LegacyAppState();
+            }
+
             var settings = Normalize(new AppSettings
             {
                 Origin = legacy.Origin,
@@ -76,10 +85,18 @@ public sealed class SettingsService
 
                 if (_cache is not null && legacy.Recent?.Count > 0)
                 {
-                    await _cache.ImportRecentAsync(legacy.Recent, cancellationToken);
+                    var scope = RezkaClientService.BuildAccountScope(
+                        NormalizeAuthority(legacy.Origin),
+                        legacy.AuthenticationCookies ?? []);
+                    await _cache.ImportRecentAsync(scope, legacy.Recent, cancellationToken);
                 }
 
                 await SaveAsync(settings, cancellationToken);
+                // On case-insensitive filesystems sourcePath (settings.json) and
+                // SettingsPath (Settings.json) are the same file, which the
+                // canonical SaveAsync has just rewritten — so there is nothing
+                // extra to delete. On case-sensitive systems, remove the old
+                // lowercase file so it stops shadowing the canonical one.
                 if (!string.Equals(sourcePath, SettingsPath, StringComparison.Ordinal) &&
                     File.Exists(sourcePath))
                 {
@@ -168,6 +185,19 @@ public sealed class SettingsService
         ApplyOwnerOnlyPermissions(temporaryPath);
         File.Move(temporaryPath, path, overwrite: true);
         ApplyOwnerOnlyPermissions(path);
+    }
+
+    private static string NormalizeAuthority(string origin)
+    {
+        try
+        {
+            return RezkaClientService.NormalizeOrigin(origin)
+                .GetLeftPart(UriPartial.Authority);
+        }
+        catch (ArgumentException)
+        {
+            return origin.Trim();
+        }
     }
 
     private static AppSettings Normalize(AppSettings settings)

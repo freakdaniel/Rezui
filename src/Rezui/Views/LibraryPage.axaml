@@ -1,0 +1,101 @@
+<UserControl
+    x:Class="Rezui.Views.LibraryPage"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:layout="clr-namespace:Avalonia.Layout;assembly=Avalonia.Controls.ItemsRepeater"
+    xmlns:vm="clr-namespace:Rezui.ViewModels"
+    x:DataType="vm:MainWindowViewModel">
+
+  <ScrollViewer Classes="smooth-scroll" IsVisible="{Binding IsLibraryVisible}">
+    <StackPanel
+        MaxWidth="1120"
+        Margin="28,126,28,56"
+        HorizontalAlignment="Center"
+        Spacing="28">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBox
+            VerticalContentAlignment="Center"
+            PlaceholderText="Поиск по HDRezka"
+            Text="{Binding SearchQuery}">
+          <TextBox.KeyBindings>
+            <KeyBinding Gesture="Enter" Command="{Binding SearchCommand}" />
+          </TextBox.KeyBindings>
+        </TextBox>
+        <Button
+            Grid.Column="1"
+            Margin="10,0,0,0"
+            Classes="primary"
+            Command="{Binding SearchCommand}">
+          <TextBlock Classes="symbol" Text="search" />
+        </Button>
+      </Grid>
+
+      <StackPanel Spacing="14">
+        <StackPanel Orientation="Horizontal" Spacing="9">
+          <TextBlock Classes="h2" Text="Продолжить просмотр" />
+          <TextBlock
+              VerticalAlignment="Center"
+              Classes="symbol filled"
+              Foreground="{StaticResource Brush.Brand}"
+              Text="resume" />
+        </StackPanel>
+        <ItemsRepeater
+            ClipToBounds="False"
+            HorizontalCacheLength="1"
+            ItemTemplate="{StaticResource MediaCardTemplate}"
+            ItemsSource="{Binding ContinueWatching}"
+            VerticalCacheLength="1">
+          <ItemsRepeater.Layout>
+            <layout:UniformGridLayout
+                ItemsJustification="Start"
+                MinItemHeight="320"
+                MinItemWidth="190" />
+          </ItemsRepeater.Layout>
+        </ItemsRepeater>
+      </StackPanel>
+
+      <StackPanel IsVisible="{Binding Results.Count}" Spacing="14">
+        <TextBlock Classes="h2" Text="Результаты поиска" />
+        <ItemsRepeater
+            ClipToBounds="False"
+            HorizontalCacheLength="1"
+            ItemTemplate="{StaticResource MediaCardTemplate}"
+            ItemsSource="{Binding Results}"
+            VerticalCacheLength="1">
+          <ItemsRepeater.Layout>
+            <layout:UniformGridLayout
+                ItemsJustification="Start"
+                MinItemHeight="320"
+                MinItemWidth="190" />
+          </ItemsRepeater.Layout>
+        </ItemsRepeater>
+      </StackPanel>
+
+      <StackPanel Spacing="14">
+        <TextBlock Classes="h2" Text="Закладки" />
+        <!-- BookmarkFolders resolves its template from the app-level
+             LibraryFolderItem DataTemplate in SharedTemplates.axaml. -->
+        <ItemsControl ItemsSource="{Binding BookmarkFolders}" />
+      </StackPanel>
+
+      <Border
+          Padding="28"
+          Classes="card"
+          IsVisible="{Binding !IsBusy}">
+        <StackPanel HorizontalAlignment="Center" Spacing="8">
+          <TextBlock
+              HorizontalAlignment="Center"
+              Classes="symbol"
+              Foreground="{DynamicResource Brush.Text.Secondary}"
+              FontSize="32"
+              Text="bookmarks" />
+          <TextBlock
+              HorizontalAlignment="Center"
+              Classes="muted"
+              Text="{Binding StatusMessage}"
+              TextAlignment="Center" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

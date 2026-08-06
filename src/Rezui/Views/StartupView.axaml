@@ -1,0 +1,453 @@
+<UserControl
+    x:Class="Rezui.Views.StartupView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:models="clr-namespace:Rezui.Models"
+    xmlns:transitions="clr-namespace:Rezui.Transitions"
+    xmlns:vm="clr-namespace:Rezui.ViewModels"
+    x:DataType="vm:MainWindowViewModel">
+
+  <Grid
+      x:Name="StartupOverlay"
+      Classes="startup-overlay"
+      Classes.visible="{Binding IsStartupVisible}"
+      IsVisible="{Binding IsStartupPresented}"
+      Background="{DynamicResource Brush.App.Background}"
+      RowDefinitions="*,Auto">
+    <StackPanel
+        x:Name="StartupWizardContent"
+        Grid.Row="0"
+        Width="560"
+        Margin="0,0,0,30"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Center"
+        Classes="startup-wizard-content"
+        Classes.visible="{Binding !IsStartupLoading}"
+        IsVisible="{Binding !IsStartupLoading}"
+        IsHitTestVisible="{Binding !IsStartupLoading}">
+      <Carousel
+          x:Name="StartupWizardCarousel"
+          Height="460"
+          IsSwipeEnabled="False"
+          SelectedIndex="{Binding StartupWizardStep}">
+        <Carousel.PageTransition>
+          <transitions:SoftSlideFadeTransition />
+        </Carousel.PageTransition>
+
+        <Grid x:Name="LoginWizardPage">
+          <StackPanel
+              Width="440"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              Classes="login-dismissable"
+              Classes.dismissed="{Binding IsLoginSuccessTransition}"
+              Spacing="26">
+            <Grid
+                x:Name="LoginBrandComposition"
+                Width="260"
+                Height="78"
+                Margin="0,0,0,4"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                IsHitTestVisible="False">
+              <StackPanel
+                  Classes="login-connection-dots"
+                  Classes.visible="{Binding AreLoginDotsVisible}"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  Orientation="Horizontal"
+                  Spacing="7">
+                <Border Classes="connection-dot first" />
+                <Border Classes="connection-dot second" />
+                <Border Classes="connection-dot third" />
+              </StackPanel>
+              <Image
+                  Width="70"
+                  Height="70"
+                  HorizontalAlignment="Center"
+                  Classes="login-rezka-logo"
+                  Classes.shifted="{Binding IsLoginLogoShifted}"
+                  RenderOptions.BitmapInterpolationMode="HighQuality"
+                  Source="avares://Rezui/Assets/hdrezka.png"
+                  Stretch="Uniform" />
+            </Grid>
+
+            <StackPanel HorizontalAlignment="Center" Spacing="5">
+              <TextBlock
+                  HorizontalAlignment="Center"
+                  Classes="h1"
+                  Text="{Binding StartupTitle}"
+                  TextAlignment="Center" />
+              <TextBlock
+                  MaxWidth="390"
+                  HorizontalAlignment="Center"
+                  Classes="muted"
+                  Text="{Binding StartupMessage}"
+                  TextAlignment="Center"
+                  TextWrapping="Wrap" />
+            </StackPanel>
+
+            <StackPanel IsVisible="{Binding IsStartupAuthenticationRequired}" Spacing="15">
+              <TextBox
+                  x:Name="LoginEmailInput"
+                  Classes="login-input"
+                  PlaceholderText="Электронная почта"
+                  Text="{Binding Login}"
+                  VerticalContentAlignment="Center">
+                <TextBox.InnerLeftContent>
+                  <TextBlock Classes="symbol login-field-icon" Text="mail" />
+                </TextBox.InnerLeftContent>
+              </TextBox>
+              <TextBox
+                  x:Name="LoginPasswordInput"
+                  Classes="login-input"
+                  PasswordChar="●"
+                  PlaceholderText="Пароль"
+                  Text="{Binding Password}"
+                  VerticalContentAlignment="Center">
+                <TextBox.InnerLeftContent>
+                  <TextBlock Classes="symbol login-field-icon" Text="lock" />
+                </TextBox.InnerLeftContent>
+                <TextBox.KeyBindings>
+                  <KeyBinding Gesture="Enter" Command="{Binding LoginCommand}" />
+                </TextBox.KeyBindings>
+              </TextBox>
+              <Button
+                  x:Name="LoginSubmitButton"
+                  HorizontalAlignment="Stretch"
+                  Classes="login-primary"
+                  Classes.running="{Binding IsLoginRunning}"
+                  Command="{Binding LoginCommand}"
+                  IsEnabled="{Binding CanLogin}">
+                <Grid
+                    MinWidth="92"
+                    Height="24"
+                    Classes="login-button-content"
+                    Classes.running="{Binding IsLoginRunning}">
+                  <StackPanel
+                      HorizontalAlignment="Center"
+                      VerticalAlignment="Center"
+                      Classes="login-button-idle"
+                      Orientation="Horizontal">
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        Foreground="{DynamicResource Brush.Text.OnContrast}"
+                        Text="Войти" />
+                  </StackPanel>
+                  <StackPanel
+                      HorizontalAlignment="Center"
+                      VerticalAlignment="Center"
+                      Classes="login-button-busy"
+                      Orientation="Horizontal"
+                      Spacing="8">
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        Classes="symbol login-spinner"
+                        Foreground="{DynamicResource Brush.Text.OnContrast}"
+                        Text="progress_activity">
+                      <TextBlock.RenderTransform>
+                        <RotateTransform />
+                      </TextBlock.RenderTransform>
+                    </TextBlock>
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        Foreground="{DynamicResource Brush.Text.OnContrast}"
+                        Text="Вхожу" />
+                  </StackPanel>
+                </Grid>
+              </Button>
+              <TextBlock
+                  MinHeight="32"
+                  Classes="login-status"
+                  Classes.visible="{Binding IsLoginStatusVisible}"
+                  Foreground="{StaticResource Brush.Danger}"
+                  FontSize="12"
+                  Text="{Binding LoginStatusMessage}"
+                  TextAlignment="Center"
+                  TextWrapping="Wrap" />
+            </StackPanel>
+          </StackPanel>
+        </Grid>
+
+        <Grid x:Name="MirrorWizardPage">
+          <StackPanel
+              Width="440"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              Spacing="22">
+            <StackPanel HorizontalAlignment="Center" Spacing="5">
+              <TextBlock
+                  HorizontalAlignment="Center"
+                  Classes="h1"
+                  Text="Подключение"
+                  TextAlignment="Center" />
+              <TextBlock
+                  MaxWidth="390"
+                  HorizontalAlignment="Center"
+                  Classes="muted"
+                  Text="Выберите зеркало с подходящей задержкой ответа"
+                  TextAlignment="Center"
+                  TextWrapping="Wrap" />
+            </StackPanel>
+
+            <StackPanel Spacing="0">
+              <Border Classes="mirror-list">
+                <StackPanel Spacing="0">
+                  <Button
+                      Classes="mirror-option"
+                      Classes.active="{Binding IsAutoMirrorSelection}"
+                      Command="{Binding SelectAutoMirrorCommand}">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                      <TextBlock
+                          VerticalAlignment="Center"
+                          FontWeight="Normal"
+                          Text="Автовыбор" />
+                      <TextBlock
+                          Grid.Column="1"
+                          VerticalAlignment="Center"
+                          Classes="muted"
+                          FontSize="12"
+                          Text="минимальный пинг" />
+                    </Grid>
+                  </Button>
+
+                  <ScrollViewer MaxHeight="190" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding MirrorStatuses}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="models:MirrorStatusItem">
+                          <Button
+                              Margin="0"
+                              Classes="mirror-option"
+                              Classes.active="{Binding IsSelected}"
+                              Classes.unavailable="{Binding !IsAvailable}"
+                              Command="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).SelectMirrorCommand}"
+                              CommandParameter="{Binding}"
+                              IsEnabled="{Binding IsAvailable}">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                              <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    FontWeight="Normal"
+                                    Text="{Binding DisplayName}" />
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    Classes="muted"
+                                    FontSize="11"
+                                    IsVisible="{Binding IsCustom}"
+                                    Text="своё" />
+                              </StackPanel>
+                              <TextBlock
+                                  Grid.Column="1"
+                                  VerticalAlignment="Center"
+                                  Classes="mirror-latency"
+                                  Classes.unavailable="{Binding !IsAvailable}"
+                                  Text="{Binding StatusText}" />
+                            </Grid>
+                          </Button>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </ScrollViewer>
+                </StackPanel>
+              </Border>
+
+              <StackPanel Margin="0,10,0,0" Spacing="8">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                  <TextBox
+                      Classes="login-input mirror-custom-input"
+                      PlaceholderText="https://example.com"
+                      Text="{Binding CustomMirror}"
+                      VerticalContentAlignment="Center">
+                    <TextBox.KeyBindings>
+                      <KeyBinding Gesture="Enter" Command="{Binding UseCustomMirrorCommand}" />
+                    </TextBox.KeyBindings>
+                  </TextBox>
+                  <Button
+                      x:Name="MirrorUseButton"
+                      Grid.Column="1"
+                      Classes="mirror-use"
+                      Classes.running="{Binding IsUsingCustomMirror}"
+                      Command="{Binding UseCustomMirrorCommand}"
+                      IsEnabled="{Binding !IsUsingCustomMirror}">
+                    <Grid
+                        MinWidth="104"
+                        Height="24"
+                        Classes="login-button-content"
+                        Classes.running="{Binding IsUsingCustomMirror}">
+                      <StackPanel
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center"
+                          Classes="login-button-idle"
+                          Orientation="Horizontal">
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            Foreground="{DynamicResource Brush.Text.OnContrast}"
+                            Text="Использовать" />
+                      </StackPanel>
+                      <StackPanel
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center"
+                          Classes="login-button-busy"
+                          Orientation="Horizontal"
+                          Spacing="8">
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            Classes="symbol login-spinner"
+                            Foreground="{DynamicResource Brush.Text.OnContrast}"
+                            Text="progress_activity">
+                          <TextBlock.RenderTransform>
+                            <RotateTransform />
+                          </TextBlock.RenderTransform>
+                        </TextBlock>
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            Foreground="{DynamicResource Brush.Text.OnContrast}"
+                            Text="Проверяю" />
+                      </StackPanel>
+                    </Grid>
+                  </Button>
+                </Grid>
+                <TextBlock
+                    MinHeight="16"
+                    Classes="mirror-status"
+                    Classes.visible="{Binding IsMirrorStatusVisible}"
+                    Foreground="{DynamicResource Brush.Text.Secondary}"
+                    FontSize="11"
+                    Text="{Binding MirrorStatusMessage}"
+                    TextWrapping="Wrap" />
+              </StackPanel>
+            </StackPanel>
+          </StackPanel>
+        </Grid>
+      </Carousel>
+    </StackPanel>
+
+    <Carousel
+        Grid.Row="1"
+        Width="320"
+        Margin="0,0,0,24"
+        HorizontalAlignment="Center"
+        Classes="startup-wizard-content"
+        Classes.visible="{Binding !IsStartupLoading}"
+        IsVisible="{Binding !IsStartupLoading}"
+        IsHitTestVisible="{Binding !IsStartupLoading}"
+        IsSwipeEnabled="False"
+        SelectedIndex="{Binding StartupWizardStep}">
+      <Carousel.PageTransition>
+        <CrossFade Duration="0:0:0.16">
+          <CrossFade.FadeInEasing>
+            <CubicEaseOut />
+          </CrossFade.FadeInEasing>
+          <CrossFade.FadeOutEasing>
+            <CubicEaseOut />
+          </CrossFade.FadeOutEasing>
+        </CrossFade>
+      </Carousel.PageTransition>
+
+      <Grid>
+        <Button
+            x:Name="MirrorAnchorButton"
+            HorizontalAlignment="Center"
+            Classes="mirror-anchor login-footer-item"
+            Classes.dismissed="{Binding IsLoginSuccessTransition}"
+            Command="{Binding OpenMirrorWizardCommand}"
+            IsEnabled="{Binding IsMirrorSelectorEnabled}">
+          <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="8">
+            <TextBlock
+                VerticalAlignment="Center"
+                Classes="symbol connection-spinner"
+                IsVisible="{Binding IsMirrorCheckRunning}"
+                Text="progress_activity" />
+            <TextBlock
+                VerticalAlignment="Center"
+                Classes="symbol"
+                IsVisible="{Binding !IsMirrorCheckRunning}"
+                Text="language" />
+            <TextBlock
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                Text="{Binding MirrorSelectorLabel}" />
+          </Grid>
+        </Button>
+      </Grid>
+
+      <Grid>
+        <Button
+            HorizontalAlignment="Center"
+            Classes="mirror-anchor login-footer-item"
+            Classes.dismissed="{Binding IsLoginSuccessTransition}"
+            Command="{Binding CloseMirrorWizardCommand}">
+          <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="8">
+            <TextBlock
+                VerticalAlignment="Center"
+                Classes="symbol"
+                Text="arrow_back" />
+            <TextBlock
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                Text="Вернуться ко входу" />
+          </Grid>
+        </Button>
+      </Grid>
+    </Carousel>
+
+    <Image
+        x:Name="LoginFoxLogo"
+        Grid.RowSpan="2"
+        Width="78"
+        Height="78"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Center"
+        IsHitTestVisible="False"
+        Classes="login-fox-logo"
+        Classes.centered="{Binding IsLoginFoxCentered}"
+        Classes.motion-suppressed="{Binding IsLoginFoxMotionSuppressed}"
+        Classes.visible="{Binding IsLoginFoxVisible}"
+        RenderOptions.BitmapInterpolationMode="HighQuality"
+        Source="avares://Rezui/Assets/rezui.png"
+        Stretch="Uniform" />
+
+    <Grid
+        x:Name="StartupLoadingContent"
+        Grid.RowSpan="2"
+        Classes="startup-loading-content"
+        IsVisible="{Binding IsStartupLoading}"
+        IsHitTestVisible="{Binding IsStartupLoading}">
+      <Image
+          x:Name="StartupLoadingLogo"
+          Width="78"
+          Height="78"
+          HorizontalAlignment="Center"
+          VerticalAlignment="Center"
+          Classes="startup-loading-logo"
+          Classes.handoff="{Binding IsLoginSuccessTransition}"
+          RenderOptions.BitmapInterpolationMode="HighQuality"
+          Source="avares://Rezui/Assets/rezui.png"
+          Stretch="Uniform" />
+      <TextBlock
+          x:Name="StartupSpinner"
+          Margin="0,132,0,0"
+          HorizontalAlignment="Center"
+          VerticalAlignment="Center"
+          Classes="symbol login-spinner startup-spinner"
+          Classes.visible="{Binding IsStartupLoading}"
+          FontSize="30"
+          Foreground="{DynamicResource Brush.Text.Secondary}"
+          Text="progress_activity">
+        <TextBlock.RenderTransform>
+          <RotateTransform />
+        </TextBlock.RenderTransform>
+      </TextBlock>
+      <TextBlock
+          Margin="24,198,24,0"
+          HorizontalAlignment="Center"
+          VerticalAlignment="Center"
+          FontFamily="{StaticResource Font.Body}"
+          Foreground="{DynamicResource Brush.Text.Secondary}"
+          FontSize="12"
+          Text="{Binding StartupMessage}"
+          TextAlignment="Center"
+          TextWrapping="Wrap" />
+    </Grid>
+  </Grid>
+</UserControl>
